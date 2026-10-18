@@ -11,7 +11,7 @@ Recorded 2026-10-17.
 | CPU | AMD EPYC 7551P, 32 cores / 64 threads, 1.2–2.0 GHz |
 | RAM | 32 GB, plus 16 GB swap |
 | Boot disk | 256 GB NVMe (FIKWOT FN501Pro): `/` 70 GB, `/home` 152 GB, `/boot` 1 GB (LVM, volume group `rl`) |
-| Data disks | 2× 4 TB HGST Ultrastar (`sda`, `sdb`) in an mdadm RAID1 mirror `md0`, XFS, **not mounted**. The array is labeled `douglas1:0` because it was created when this machine was misnamed. |
+| Data disks | 2× 4 TB HGST Ultrastar (`sda`, `sdb`) in an mdadm RAID1 mirror `md0`, XFS, meant to mount at `/raiddrive` but **not mounted** because of a UUID typo in `/etc/fstab`. The array is labeled `douglas1:0` because it was created when this machine was misnamed. |
 | GPU | None (ASPEED onboard video only) |
 | Network | `eno1` 192.168.5.200/22 (1 Gb, upstream); `eno2` 172.16.50.1/24 (1 Gb, cluster network) |
 | SELinux | Enforcing |

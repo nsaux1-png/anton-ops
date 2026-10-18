@@ -21,6 +21,7 @@ Users log into anton and submit jobs. Every job is recorded in Slurm's accountin
 | `docs/architecture.md` | How the cluster is put together |
 | `docs/machines.md` | Hardware and network details for each machine |
 | `docs/decisions.md` | Decision log |
+| `docs/todo.md` | The to-do list |
 | `docs/open-questions.md` | Things we still need to find out or decide |
 | `docs/ops-log/` | Dated records of work done on the machines |
 
