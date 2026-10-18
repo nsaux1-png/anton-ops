@@ -5,7 +5,7 @@ Tick items off here and commit, so the history shows when each was done.
 
 ## 1. Finish renaming anton (remove every "douglas1" that refers to this machine)
 - [x] Hostname → `anton` (2026-10-17)
-- [ ] **you:** Rename the RAID array from `douglas1:0` to `anton:0`. It's unmounted, so this is the right moment. Claude will give the exact commands.
+- [ ] **you:** Rename the RAID array from `douglas1:0` to `anton:0`: run `scripts/bootstrap/01-anton-fixes.sh`.
 - [ ] **you or Claude:** Search the root-only files in `/etc` for "douglas1". 23 files couldn't be read without sudo; needs sudo.
 - [ ] **you:** Rename the SSH entry for 192.168.5.200 on your laptop(s) from douglas1 to anton.
 - [ ] **you:** Check the router/DNS and other machines for a "douglas1" name pointing at anton's addresses (192.168.5.200 or 172.16.50.1).
