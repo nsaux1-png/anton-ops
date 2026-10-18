@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Push every commit to GitLab right away, so GitLab always has the latest.
+# Enabled per clone with:  git config core.hooksPath scripts/git-hooks
+# A failed push never blocks the commit; it's reported, and the next commit retries.
+git remote get-url origin >/dev/null 2>&1 || { echo "post-commit: no 'origin' remote yet, not pushed"; exit 0; }
+branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+if timeout 30 git push -q origin "$branch" 2>/tmp/post-commit-push.$$; then
+  echo "post-commit: pushed $branch to origin"
+else
+  echo "post-commit: PUSH FAILED (commit is saved locally; run 'git push' to retry):"
+  sed 's/^/  /' /tmp/post-commit-push.$$
+fi
+rm -f /tmp/post-commit-push.$$
+exit 0
