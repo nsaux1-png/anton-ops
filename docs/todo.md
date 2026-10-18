@@ -7,9 +7,9 @@ Tick items off here and commit, so the history shows when each was done.
 - [x] Hostname → `anton` (2026-10-17)
 - [x] RAID array renamed `douglas1:0` → `anton:0` (2026-10-18, `scripts/bootstrap/01-anton-fixes.sh`)
 - [x] Searched all of `/etc` as root (2026-10-18). Only remaining hits: `/etc/hosts` (the real douglas1) and LVM's history files (see below).
-- [ ] **you:** Rename the SSH entry for 192.168.5.200 on your laptop(s) from douglas1 to anton.
+- [ ] **you:** On your own computer, rename the saved SSH connection named "douglas1" that actually goes to anton (192.168.5.200), e.g. in `~/.ssh/config` or iTerm profiles.
 - [ ] **you:** Check the router/DNS and other machines for a "douglas1" name pointing at anton's addresses (192.168.5.200 or 172.16.50.1).
-- [ ] **you:** Decide the name for 172.16.50.11 in `/etc/hosts`: currently `douglas1_gpu`. That machine really *is* douglas1, so this line stays pointed at it; only the name is in question.
+- [x] `/etc/hosts` on anton: 172.16.50.11 is named `douglas1` again (was `douglas1_gpu`), 2026-10-18.
 - Not to rename: `~/.ssh/known_hosts` "douglas1" (the real douglas1's key, checked); `~/.bash_history` (old history); `/etc/lvm/backup/rl` and `/etc/lvm/archive/` `creation_host = "douglas1"` (a record of where the OS disk's volumes were created at install time; it has no effect, and changing it would mean reinstalling).
 
 ## 2. Mount the RAID at /raiddrive

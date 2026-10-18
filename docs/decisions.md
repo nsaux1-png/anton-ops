@@ -25,3 +25,6 @@ anton's `~/.ssh/id_ed25519` is only for reaching cluster nodes. GitLab gets its 
 
 ## 2026-10-18: Everything is recorded in this repo, hosted on our GitLab
 Discussions, decisions, procedures and scripts all live here.
+
+## 2026-10-18: 172.16.50.11 is named `douglas1`
+The `douglas1_gpu` name in anton's `/etc/hosts` was replaced with `douglas1` (backup kept as `/etc/hosts.bak-*`). Ansible will manage `/etc/hosts` from now on.
