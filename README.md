@@ -18,7 +18,7 @@ Users log into anton and submit jobs. Every job is recorded in Slurm's accountin
 
 | Path | Contents |
 |---|---|
-| `docs/plan.md` | The full plan (draft, decisions D1–D39 being worked through) |
+| `docs/plan.md` | The full plan (draft, decisions D1–D46 being worked through) |
 | `docs/architecture.md` | How the cluster is put together |
 | `docs/machines.md` | Hardware and network details for each machine |
 | `docs/decisions.md` | Decision log |

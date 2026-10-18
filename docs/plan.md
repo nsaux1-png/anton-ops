@@ -82,7 +82,22 @@ How to read this:
 - **Updates:** monthly maintenance window. Packages are updated on one node first, then the rest. Kernel updates need a reboot and a matching NVIDIA driver, so they're always done in the window, never automatically.
 - **SELinux stays enforcing.**
 
+### Where nodes get their packages from
+
+Compute nodes have outbound internet through anton (NAT). That still leaves a separate question: **where do system packages (OS updates, NVIDIA driver, Slurm) come from?** Professional clusters use one of three approaches:
+
+| Approach | How it works | Pros | Cons |
+|---|---|---|---|
+| **Direct from the internet** | each node's `dnf` downloads from Rocky/EPEL/NVIDIA mirrors | nothing to set up | nodes installed a month apart get different package versions; breaks if the internet is down |
+| **Proxy on the head node** | nodes download through a caching proxy (e.g. Squid) on anton | one controlled way out; caches downloads | versions still drift between nodes; another service to run |
+| **Local repository mirror (snapshots)** | anton downloads the repos into dated snapshots on `/raiddrive` (e.g. `repos/2026-10-18/`); nodes install only from anton | **every node gets identical versions**; upgrades = switch to a newer snapshot, test, roll out; works with no internet; fast | ~50–100 GB per snapshot; a sync script to maintain |
+
+Manually copying `.rpm` files over is not how it's done; the "mirror" approach is the professional version of copying, done automatically by a script.
+
+**Proposal:** a **local snapshot mirror on anton** for system packages (Rocky BaseOS/AppStream, EPEL, NVIDIA's repo, plus our own Slurm builds). This fits "repeatable" best: a node added in six months gets exactly what douglas1 has, unless we deliberately move everyone to a newer snapshot. User jobs still use the NAT for pip/conda/datasets.
+
 **Decisions**
+- **D46. Package source for nodes:** (a) direct, (b) proxy, (c) local snapshot mirror. *Recommended: (c). It can start in step 1 of the build, so no node is ever installed from a moving target.*
 - **D12. Network installs (PXE)** instead of USB? *Recommended: not now. Worth it at ~10+ nodes.*
 - **D13. Maintenance window:** day and time each month, and how much notice customers get. *Recommended: one fixed slot per month, 1 week notice.*
 
@@ -210,22 +225,60 @@ How to read this:
 
 ---
 
-## 12. Accounting and billing
+## 12. Accounting, billing and credits
 
-**Proposal**
-- **What's measured:** for each job, Slurm records the allocated CPUs, memory, GPUs and elapsed time, per user and account.
-- **What's charged:** **allocated** resources × time, not "used" (industry norm: a GPU you reserved and left idle still costs us).
-- **Rates** live in the repo (`inventory/accounts.yml` / billing config): price per GPU-hour, per CPU-hour, possibly per GB-hour of memory, possibly different per node type.
-- **Enforcement:** jobs from users who aren't in an active account are rejected at submission. Accounts can have spending caps (Slurm limits on billing units) so nobody is surprised by their bill.
-- **Reporting:** `./cluster billing-report 2026-10` produces a per-account, per-user CSV for the month, with totals. It's built from the accounting database, so it can be re-run and gives the same answer.
-- **Customer self-service:** a command on the login node showing a user's and account's usage and cost so far this month.
+### 12.1 Measuring usage
+- For every job, Slurm records the **allocated** CPUs, memory, GPUs and elapsed time, per user and account. It's kept forever in the accounting database.
+- **We charge for allocated resources × time, not "used"** (industry norm: a GPU you reserved and left idle still couldn't be sold to anyone else).
+- Each job's cost is expressed in **billing units**, computed by Slurm from weights we set per partition: e.g. 1 GPU-hour on douglas1 = 100 units, 1 CPU-hour = 1 unit. Different node types can have different weights, so a faster GPU can cost more.
+
+### 12.2 The credit system
+
+**Proposal: prepaid credits, with a ledger as the money record and Slurm as the enforcer.**
+
+- **Credits are what customers buy.** 1 credit = a fixed amount of money (D40). Every job's cost in credits = its billing units × the credit rate.
+- **The ledger** is the source of truth for money: an append-only record (database on anton, backed up nightly, D21) of every credit movement for every account:
+  | Entry type | Example |
+  |---|---|
+  | `topup` | customer bought 1,000 credits (invoice #, who entered it) |
+  | `grant` | free trial or promotional credits |
+  | `charge` | job 12345 used 37.5 credits |
+  | `refund` | job 12345 refunded, node failure |
+  | `adjustment` | correction, with a written reason |
+  | `expiry` | unused credits expired (if D42 says they expire) |
+
+  Nothing is ever edited or deleted; corrections are new entries. **Balance = sum of entries.** Every number on an invoice or statement can be traced back to jobs and entries.
+- **Charging:** a script runs every few minutes, finds jobs that finished since the last run, and writes one `charge` entry per job. Each job is charged exactly once (the job ID is the key), so re-running the script never double-charges.
+- **Enforcement in Slurm:** each account gets a spending limit in Slurm equal to its credit balance. When the account runs out:
+  - **new jobs don't start** and show a clear reason ("account out of credits");
+  - **running jobs aren't killed**;
+  - Slurm can be set to **only start a job if the balance covers its full requested time limit**, so a job can't overdraw the account by running long. Customers who set realistic time limits get their jobs started sooner.
+- **Sync:** after every top-up or charge, the script updates the account's Slurm limit from the ledger. Slurm is never the money record; it only enforces.
+- **Known trap we avoid:** Slurm normally "forgets" old usage over time for fair-share purposes. The credit limit has to be set up so that usage **never decays**, or customers would silently regain credits. This is a specific configuration choice in the build, and it gets a test.
+- **Customer-facing:**
+  - `credits` command on the login node: current balance, usage this month by user and project, running jobs' projected cost.
+  - Before submitting: an estimate of what a job will cost at most (its time limit × resources).
+  - **Low-balance warnings** by email at e.g. 20% and 5% remaining.
+  - Monthly statement per account: opening balance, top-ups, charges by user/project, refunds, closing balance.
+- **Projects within a customer** (D17) can get their own sub-budgets carved out of the customer's credits, so a lab can cap each project.
+- **Admin side:** `./cluster credits topup <account> <amount> --ref <invoice>`, `./cluster credits refund <jobid> --reason ...`, `./cluster credits statement <account> <month>`. Every one of these is logged like any other `./cluster` run.
+
+### 12.3 Reporting and invoicing
+- `./cluster billing-report 2026-10`: per-account, per-user CSV for the month, built from the ledger, so it re-runs to the same answer.
+- Cross-check each month: ledger charges vs. Slurm's own usage totals. Any mismatch is flagged before anything goes to a customer.
 
 **Decisions**
 - **D29. Rates:** price per GPU-hour, CPU-hour, memory? Same price for all GPU types? *Your call; Claude can suggest market comparisons.*
-- **D30. Pricing model:** pay as you go (bill monthly in arrears), prepaid credits, or reserved capacity (fixed monthly for N GPUs)? *Recommended: pay-as-you-go plus optional spending caps at launch; prepaid credits are easy to add because Slurm can enforce them as limits.*
-- **D31. Failed jobs:** charged? *Recommended: yes for job failures (the resources were held), no for node failures (our fault); the report marks which is which.*
+- **D30. Pricing model:** prepaid credits only, or also pay-as-you-go (billed monthly in arrears) for trusted customers? *Recommended: prepaid credits for everyone at launch. Postpaid can be done later with the same ledger (allowing the balance to go negative up to a set limit).*
+- **D31. Failed jobs:** charged? *Recommended: yes for job failures (the resources were held), automatic refund for node failures (our fault); the statement marks which is which.*
 - **D32. Minimum billing increment:** per second, minute, or hour? *Recommended: per minute.*
-- **D33. Invoicing:** which tool sends invoices, and who reviews the report first? *Is there an accounting system (e.g. QuickBooks, Stripe) the CSV should feed?*
+- **D33. Invoicing:** which tool sends invoices and takes payment, and who reviews before it goes out? *Is there an accounting system (e.g. QuickBooks, Stripe) top-ups should come from?*
+- **D40. What 1 credit is worth:** a fixed money amount (e.g. 1 credit = $0.01), or 1 GPU-hour-equivalent? *Recommended: tie credits to money. Prices can then change without changing anyone's balance.*
+- **D41. Running out mid-job:** with the "must cover full time limit" rule a job can't overdraw by much. Do we also allow a small overdraft (grace) so jobs aren't blocked at e.g. 0.5 credits short? *Recommended: no overdraft at launch.*
+- **D42. Do credits expire?** *Recommended: after 12 months, stated in the terms. Expired credits are a ledger entry, not a silent deletion.*
+- **D43. Free trial credits** for new customers? How many?
+- **D44. Top-ups:** entered by an admin after payment is received, or automatic from a payment system (e.g. Stripe webhook)? *Recommended: admin-entered at launch; automate once volume justifies it.*
+- **D45. Ledger storage:** a table in the same MariaDB as Slurm accounting, or a separate database? *Recommended: same MariaDB server, separate database, backed up together.*
 
 ---
 
@@ -303,12 +356,12 @@ How to read this:
 
 ## 18. Build order (once the plan is agreed)
 
-1. **Foundations:** Ansible + repo layout + `./cluster` with logging; hosts, time, firewall, gateway; douglas1 gets internet.
+1. **Foundations:** Ansible + repo layout + `./cluster` with logging; hosts, time, firewall, gateway; douglas1 gets internet; local package mirror (D46).
 2. **Storage:** `/raiddrive` layout, NFS, quotas.
 3. **Users:** users.yml, admin accounts, SSH hardening.
 4. **GPU:** NVIDIA driver on douglas1.
 5. **Slurm:** build, accounting DB, controller, douglas1 as first node, partitions, enforcement.
-6. **Billing:** accounts, rates, limits, report; dry-run a month on test jobs.
+6. **Billing and credits:** accounts, rates, ledger, charging script, Slurm credit limits, `credits` command, statements; dry-run a month on test jobs, including a deliberate run-out-of-credits test and a cross-check of ledger vs. Slurm.
 7. **Monitoring and alerts.**
 8. **Backups**, then a restore test.
 9. **User guide and terms**, onboard a friendly first customer.
