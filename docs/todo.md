@@ -5,19 +5,19 @@ Tick items off here and commit, so the history shows when each was done.
 
 ## 1. Finish renaming anton (remove every "douglas1" that refers to this machine)
 - [x] Hostname → `anton` (2026-10-17)
-- [ ] **you:** Rename the RAID array from `douglas1:0` to `anton:0`: run `scripts/bootstrap/01-anton-fixes.sh`.
-- [ ] **you or Claude:** Search the root-only files in `/etc` for "douglas1". 23 files couldn't be read without sudo; needs sudo.
+- [x] RAID array renamed `douglas1:0` → `anton:0` (2026-10-18, `scripts/bootstrap/01-anton-fixes.sh`)
+- [x] Searched all of `/etc` as root (2026-10-18). Only remaining hits: `/etc/hosts` (the real douglas1) and LVM's history files (see below).
 - [ ] **you:** Rename the SSH entry for 192.168.5.200 on your laptop(s) from douglas1 to anton.
 - [ ] **you:** Check the router/DNS and other machines for a "douglas1" name pointing at anton's addresses (192.168.5.200 or 172.16.50.1).
 - [ ] **you:** Decide the name for 172.16.50.11 in `/etc/hosts`: currently `douglas1_gpu`. That machine really *is* douglas1, so this line stays pointed at it; only the name is in question.
-- Not to rename: `~/.ssh/known_hosts` "douglas1" (the real douglas1's key, checked), and `~/.bash_history` (old history).
+- Not to rename: `~/.ssh/known_hosts` "douglas1" (the real douglas1's key, checked); `~/.bash_history` (old history); `/etc/lvm/backup/rl` and `/etc/lvm/archive/` `creation_host = "douglas1"` (a record of where the OS disk's volumes were created at install time; it has no effect, and changing it would mean reinstalling).
 
 ## 2. Mount the RAID at /raiddrive
-- [ ] **you:** Fix the typo in `/etc/fstab`: the UUID says `000658eb-Z151-…` but the real one is `000658eb-2151-…`. Then mount it. See `ops-log/2026-10-18-raiddrive.md`.
-- [ ] **Claude:** Check what's on it (read-only) and record it.
+- [x] fstab UUID typo fixed and `/raiddrive` mounted (2026-10-18). See `ops-log/2026-10-18-raiddrive.md`.
+- [x] Contents checked: empty (3.7 TB, 26 GB is filesystem overhead).
 
 ## 3. Access
-- [ ] **you:** Add the temporary passwordless sudo file on anton and on douglas1.
+- [x] Temporary passwordless sudo on anton and douglas1 (2026-10-18).
 - [ ] **you:** Add anton's GitLab key to GitLab, create an empty project, and send Claude its address (and say whether it's gitlab.com or self-hosted).
 - [ ] **Claude:** Connect this repo to GitLab and push.
 

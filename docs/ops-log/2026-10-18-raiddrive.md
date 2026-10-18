@@ -19,3 +19,10 @@ sudo systemctl daemon-reload
 sudo mount /raiddrive
 findmnt /raiddrive
 ```
+
+## Done (2026-10-18 00:28, `scripts/bootstrap/01-anton-fixes.sh`, run by papaya)
+- Array renamed `douglas1:0` → `anton:0`. Both members in sync, state clean.
+- fstab typo fixed (backup `/etc/fstab.bak-20261018-002853`); `/raiddrive` mounted.
+- Contents: empty. 3.7 TB filesystem; the 26 GB shown as used is XFS metadata reservation.
+- Temporary passwordless sudo installed on anton and douglas1 (`/etc/sudoers.d/90-papaya-temp`).
+- Full output: `/var/log/cluster-ops/20261018-002852-01-anton-fixes.log` on anton.
