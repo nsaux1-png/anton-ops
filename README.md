@@ -1,5 +1,7 @@
 # Cluster
 
+Home: https://gitlab.com/nicolas478/anton-ops (private). After cloning, run `git config core.hooksPath scripts/git-hooks` so every commit is pushed automatically.
+
 Configuration, scripts and records for our Slurm cluster.
 
 - **anton** is the head node: Slurm controller, accounting database, login point, shared storage, and gateway for the cluster network.

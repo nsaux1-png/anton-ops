@@ -18,8 +18,8 @@ Tick items off here and commit, so the history shows when each was done.
 
 ## 3. Access
 - [x] Temporary passwordless sudo on anton and douglas1 (2026-10-18).
-- [ ] **you:** Add anton's GitLab key to GitLab, create an empty project, and send Claude its address (and say whether it's gitlab.com or self-hosted).
-- [ ] **Claude:** Connect this repo to GitLab and push.
+- [x] anton's GitLab key added to gitlab.com account @nicolas478 (2026-10-18).
+- [x] Repo pushed to https://gitlab.com/nicolas478/anton-ops (private); every commit now pushes automatically (2026-10-18).
 
 ## 4. Foundations (Claude, once sudo is in place)
 - [ ] Install Ansible; set up the playbook skeleton, inventory (`nodes.yml`), and the `./cluster` command with run logging.

@@ -9,4 +9,4 @@
 - [ ] **User identity:** keep a managed `users.yml` (planned), or use a directory service such as FreeIPA later?
 - [ ] **Exposure to the internet:** anton accepts SSH from public IPs. Check that password login is disabled for SSH and add fail2ban before customers are onboarded.
 - [ ] **Remove `/etc/sudoers.d/90-papaya-temp`** from both machines when the build is done.
-- [ ] **GitLab:** gitlab.com or a self-hosted server? Which group or project?
+- [x] **GitLab:** gitlab.com, private project `nicolas478/anton-ops` (2026-10-18).

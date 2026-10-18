@@ -28,3 +28,6 @@ Discussions, decisions, procedures and scripts all live here.
 
 ## 2026-10-18: 172.16.50.11 is named `douglas1`
 The `douglas1_gpu` name in anton's `/etc/hosts` was replaced with `douglas1` (backup kept as `/etc/hosts.bak-*`). Ansible will manage `/etc/hosts` from now on.
+
+## 2026-10-18: Repo hosted at gitlab.com/nicolas478/anton-ops, pushed on every commit
+Private project under @nicolas478; can be moved to a group later without losing history. A post-commit hook (`scripts/git-hooks/post-commit`) pushes each commit right away; a failed push is reported and retried on the next commit. Each new clone must enable it with `git config core.hooksPath scripts/git-hooks`. anton pushes with its own key, `~/.ssh/id_ed25519_gitlab`.
