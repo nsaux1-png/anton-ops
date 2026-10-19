@@ -1,6 +1,6 @@
 # Cluster
 
-Home: https://gitlab.com/nicolas478/anton-ops (private). After cloning, run `git config core.hooksPath scripts/git-hooks` so every commit is pushed automatically.
+Home: https://github.com/nsaux1-png/anton-ops (private). Until 2026-10-19 it lived at gitlab.com/nicolas478/anton-ops. After cloning, run `git config core.hooksPath scripts/git-hooks` so every commit is pushed automatically.
 
 Configuration, scripts and records for our Slurm cluster.
 

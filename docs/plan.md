@@ -124,7 +124,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 
 **Decisions**
 - **D14. Who are the operators?** Just you, or more people? Do they each get their own admin account? *Recommended: one named admin account per person, never shared; papaya is yours.*
-- **D15. GitLab as the official copy:** pushes after every change? Merge requests for review? *Recommended: push after every change; merge requests once there's more than one operator.*
+- **D15. GitHub as the official copy:** pushes after every change? Merge requests for review? *Recommended: push after every change; merge requests once there's more than one operator.*
 
 ---
 
@@ -328,7 +328,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 
 **Proposal**
 - **Rebuild-from-repo:** anton or any node can be reinstalled and reconfigured from this repo plus the vault password. We test that once, on purpose.
-- **Must back up:** Slurm accounting DB (nightly dump), `/etc` of anton, the vault password (stored offline by you), the repo (GitLab).
+- **Must back up:** Slurm accounting DB (nightly dump), `/etc` of anton, the vault password (stored offline by you), the repo (GitHub).
 - **Customer data:** depends on D21.
 - **Off-site target:** TBD (cloud storage bucket, another site).
 

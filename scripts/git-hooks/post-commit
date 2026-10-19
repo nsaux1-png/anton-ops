@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Push every commit to GitLab right away, so GitLab always has the latest.
+# Push every commit to origin (GitHub) right away, so GitHub always has the latest.
 # Enabled per clone with:  git config core.hooksPath scripts/git-hooks
 # A failed push never blocks the commit; it's reported, and the next commit retries.
 git remote get-url origin >/dev/null 2>&1 || { echo "post-commit: no 'origin' remote yet, not pushed"; exit 0; }

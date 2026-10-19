@@ -10,3 +10,4 @@
 - [ ] **Exposure to the internet:** anton accepts SSH from public IPs. Check that password login is disabled for SSH and add fail2ban before customers are onboarded.
 - [ ] **Remove `/etc/sudoers.d/90-papaya-temp`** from both machines when the build is done.
 - [x] **GitLab:** gitlab.com, private project `nicolas478/anton-ops` (2026-10-18).
+- [x] **Moved to GitHub:** private repo `nsaux1-png/anton-ops` (2026-10-19).

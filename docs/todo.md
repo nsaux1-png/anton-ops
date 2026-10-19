@@ -20,6 +20,10 @@ Tick items off here and commit, so the history shows when each was done.
 - [x] Temporary passwordless sudo on anton and douglas1 (2026-10-18).
 - [x] anton's GitLab key added to gitlab.com account @nicolas478 (2026-10-18).
 - [x] Repo pushed to https://gitlab.com/nicolas478/anton-ops (private); every commit now pushes automatically (2026-10-18).
+- [x] Empty private repo `nsaux1-png/anton-ops` created on GitHub; anton's key (`~/.ssh/id_ed25519_github.pub`) added as a deploy key with write access (2026-10-19).
+- [x] `origin` switched to GitHub and full history pushed; the post-commit hook now pushes there (2026-10-19).
+- [ ] **you:** Archive or delete the old GitLab project `nicolas478/anton-ops`, and remove anton's key from the GitLab account.
+- [ ] **Claude:** Then remove `~/.ssh/id_ed25519_gitlab` and the `gitlab.com` entry in `~/.ssh/config` on anton.
 
 ## 4. Foundations (Claude, once sudo is in place)
 - [ ] Install Ansible; set up the playbook skeleton, inventory (`nodes.yml`), and the `./cluster` command with run logging.

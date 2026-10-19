@@ -31,3 +31,6 @@ The `douglas1_gpu` name in anton's `/etc/hosts` was replaced with `douglas1` (ba
 
 ## 2026-10-18: Repo hosted at gitlab.com/nicolas478/anton-ops, pushed on every commit
 Private project under @nicolas478; can be moved to a group later without losing history. A post-commit hook (`scripts/git-hooks/post-commit`) pushes each commit right away; a failed push is reported and retried on the next commit. Each new clone must enable it with `git config core.hooksPath scripts/git-hooks`. anton pushes with its own key, `~/.ssh/id_ed25519_gitlab`.
+
+## 2026-10-19: Repo moved to GitHub, github.com/nsaux1-png/anton-ops
+**Why:** the user prefers GitHub. It's a private repo under @nsaux1-png, with full history, and the post-commit hook pushes there now. anton pushes with a new key of its own, `~/.ssh/id_ed25519_github`, added to that one repo as a **deploy key** with write access. If the key leaks, only this repo is exposed, not the whole GitHub account. The GitLab project is no longer updated.
