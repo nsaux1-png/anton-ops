@@ -2,8 +2,8 @@
 
 - [x] **What is on anton's 4 TB mirror?** Nothing. It's empty, now mounted at `/raiddrive` (2026-10-18).
 - [x] **Name for 172.16.50.11:** `douglas1` (decided 2026-10-18; `douglas1_gpu` removed).
-- [ ] **What is `172.16.99.0/24` on douglas1** (`enp72s0f3u2u3c2`, a USB network interface)? It may be the BMC's host interface.
-- [ ] **douglas1's `enp66s0f0np0` is down.** Is it meant to be cabled, for example as a faster cluster link?
+- [x] **What is `172.16.99.0/24` on douglas1?** The BMC's virtual USB network link (AMI "Virtual Ethernet"), internal to the server (2026-10-19).
+- [x] **douglas1's `enp66s0f0np0` is down.** It's the second 10 Gb port, simply not cabled. Both douglas1 ports are 10 Gb; anton's are 1 Gb only (2026-10-19). See D4.
 - [ ] **Billing rates:** price per GPU-hour and CPU-hour, and whether memory is charged.
 - [ ] **Account structure:** one Slurm account per customer? Per project within a customer?
 - [ ] **User identity:** keep a managed `users.yml` (planned), or use a directory service such as FreeIPA later?

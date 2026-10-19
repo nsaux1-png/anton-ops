@@ -13,7 +13,8 @@ Recorded 2026-10-17.
 | Boot disk | 256 GB NVMe (FIKWOT FN501Pro): `/` 70 GB, `/home` 152 GB, `/boot` 1 GB (LVM, volume group `rl`) |
 | Data disks | 2× 4 TB HGST Ultrastar (`sda`, `sdb`) in an mdadm RAID1 mirror `md0` (name `anton:0`), XFS, 3.7 TB, mounted at `/raiddrive`. Empty as of 2026-10-18. |
 | GPU | None (ASPEED onboard video only) |
-| Network | `eno1` 192.168.5.200/22 (1 Gb, upstream); `eno2` 172.16.50.1/24 (1 Gb, cluster network) |
+| Network | `eno1` 192.168.5.200/22 (1 Gb, upstream; also has a public IPv6 address `2600:6c82:…`); `eno2` 172.16.50.1/24 (1 Gb, cluster network). Both are Intel `igb` ports, **1 Gb maximum**. |
+| Free slots | 5 free PCIe 3.0 slots (x8: SLOT1, SLOT3, SLOT5; x16: SLOT4, SLOT6), checked 2026-10-19. Room for a 10 Gb card. |
 | SELinux | Enforcing |
 | Services | firewalld, chronyd and sshd active; IP forwarding off |
 | Repos | BaseOS, AppStream, Extras, EPEL |
@@ -22,12 +23,13 @@ Recorded 2026-10-17.
 
 | | |
 |---|---|
+| Hardware | ASRock Rack ROMED8-2T motherboard, with a BMC (remote management) |
 | OS | Rocky Linux 9.8 |
 | CPU | AMD EPYC 7663, 56 cores / 112 threads |
 | RAM | 251 GB |
-| Disk | 256 GB NVMe (FIKWOT FN501Pro) only: `/` 70 GB, `/home` 163 GB |
+| Disk | 256 GB NVMe (FIKWOT FN501Pro) only: `/` 70 GB, `/home` 163 GB. **Free: M.2 slot `M2_1` and two OCuLink ports (`OCU1`, `OCU2`)** for adding NVMe scratch (checked 2026-10-19). |
 | GPUs | 10× NVIDIA GeForce RTX 5070 Ti (GB203). **No NVIDIA driver installed yet.** |
-| Network | `enp66s0f1np1` 172.16.50.11/24 (cluster network); `enp66s0f0np0` down; `enp72s0f3u2u3c2` 172.16.99.201/24 (USB interface, purpose unknown) |
+| Network | Broadcom BCM57416, **two 10 Gb ports (10GBASE-T)**: `enp66s0f1np1` 172.16.50.11/24 (cluster network, running at 1 Gb because anton's side is 1 Gb); `enp66s0f0np0` not cabled. `enp72s0f3u2u3c2` 172.16.99.201/24 is the BMC's virtual USB network link (AMI "Virtual Ethernet"), internal between the server and its own BMC. |
 | Internet | None: no default route, and DNS servers are unreachable |
 | Secure Boot | Disabled |
 | SELinux | Enforcing |

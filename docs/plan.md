@@ -19,9 +19,9 @@ How to read this:
 - Users only touch the cluster through Slurm. No direct logins to compute nodes, except into nodes where they have a running job.
 
 **Decisions**
-- **D1. Who are the customers?** (a) external paying companies, (b) internal teams with chargeback, (c) both. This affects isolation, contracts and security. *Recommended: plan for (c) and design for external customers.*
-- **D2. Expected size in a year:** number of users, number of nodes. *Needed to size the head node, storage and network. Rough guesses are fine.*
-- **D3. Service level:** is this best-effort ("we fix it next business day"), or do customers expect uptime guarantees? *Recommended: best-effort at launch, stated in the terms.*
+- **D1. Who are the customers?** (a) external paying companies, (b) internal teams with chargeback, (c) both. This affects isolation, contracts and security. *Recommended: plan for (c) and design for external customers.* **→ Decided 2026-10-19: external only; internal users go through the same system.**
+- **D2. Expected size in a year:** number of users, number of nodes. *Needed to size the head node, storage and network. Rough guesses are fine.* **→ Decided 2026-10-19: medium, 20–100 users, 4–10 nodes.**
+- **D3. Service level:** is this best-effort ("we fix it next business day"), or do customers expect uptime guarantees? *Recommended: best-effort at launch, stated in the terms.* **→ Decided 2026-10-19: best effort.**
 
 ---
 
@@ -68,7 +68,7 @@ How to read this:
 
 **Decisions**
 - **D8. Node naming scheme.** *Recommended: keep personal names if that's your convention, but keep the type in the inventory (Slurm doesn't care).* Or switch to `gpu01`/`cpu01`.
-- **D9. What is 172.16.99.0/24** on douglas1's USB network interface? Probably the BMC host interface. *Needs checking.*
+- **D9. What is 172.16.99.0/24** on douglas1's USB network interface? **→ Answered 2026-10-19: the BMC's virtual USB link, internal to the server. Left alone.**
 - **D10. How customers reach the cluster:** (a) SSH directly from the internet to anton, (b) VPN first, then SSH. *Recommended: (a) with keys only and fail2ban to start, (b) if a customer requires it.*
 - **D11. Is the 192.168.5.0/22 upstream network shared with other office machines?** Affects firewall rules.
 
@@ -307,7 +307,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 
 **Decisions**
 - **D35. Two-factor login** for customers? *Recommended: not at launch; add if a customer requires it.*
-- **D36. Sensitive data:** will customers bring regulated data (health, personal data)? If yes, this plan needs a stricter version.
+- **D36. Sensitive data:** will customers bring regulated data (health, personal data)? If yes, this plan needs a stricter version. **→ Decided 2026-10-19: no regulated data at launch.**
 - **D37. How Claude keeps working on the cluster after the build:** its own admin account with limited sudo, or only through operators? *Recommended: decide after the build; remove broad passwordless sudo either way.*
 
 ---

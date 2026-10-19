@@ -24,7 +24,7 @@ Status: planned. Nothing below is installed yet unless marked otherwise.
 |---|---|---|---|
 | 192.168.5.0/22 | Upstream LAN and internet, SSH from outside | 192.168.5.200 (`eno1`) | none |
 | 172.16.50.0/24 | Cluster network | 172.16.50.1 (`eno2`) | 172.16.50.11 (`enp66s0f1np1`) |
-| 172.16.99.0/24 | Unknown (USB network interface on douglas1); see open questions | none | 172.16.99.201 |
+| 172.16.99.0/24 | Internal link between douglas1 and its own BMC (virtual USB network). Not part of the cluster; left alone. | none | 172.16.99.201 |
 
 ## Billing
 

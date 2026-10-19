@@ -34,3 +34,11 @@ Private project under @nicolas478; can be moved to a group later without losing 
 
 ## 2026-10-19: Repo moved to GitHub, github.com/nsaux1-png/anton-ops
 **Why:** the user prefers GitHub. It's a private repo under @nsaux1-png, with full history, and the post-commit hook pushes there now. anton pushes with a new key of its own, `~/.ssh/id_ed25519_github`, added to that one repo as a **deploy key** with write access. If the key leaks, only this repo is exposed, not the whole GitHub account. The GitLab project is no longer updated.
+
+## 2026-10-19: Scope (plan D1, D2, D3, D36)
+- **D1 Customers: external only.** Anyone internal uses the cluster through the same system as a customer, with the same accounts, billing and isolation.
+- **D2 Size in a year: medium**, 20–100 users and 4–10 compute nodes. Within the year this means a 10 Gb switch, a separate login node (D6) and a larger storage server (D22). PXE installs (D12) become worth it toward the top of that range.
+- **D3 Service level: best effort**, stated in the terms. We fix problems promptly, typically the next business day, with no uptime guarantee.
+- **D36 Sensitive data: none at launch.** The terms say no regulated data (health, personal data). A stricter, isolated partition can be added later for a customer who needs it.
+
+**Why:** the user's answers, 2026-10-19. Designing for external customers only keeps one set of rules for everyone.
