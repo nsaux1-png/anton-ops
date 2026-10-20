@@ -6,7 +6,7 @@ Tick items off here and commit, so the history shows when each was done.
 ## Next up (2026-10-19): NVIDIA driver on douglas1
 The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [x] **Claude:** Ansible + `./cluster` with run logging (2026-10-19, SOP-001, SOP-101). `/etc/hosts` managed too (SOP-102).
-- [ ] **Claude:** Admin web proxy on anton, and network limits for customer accounts on douglas1 (build plan 1.3–1.4, SOP-103, SOP-104).
+- [x] **Claude:** Admin web proxy on anton, and network limits for customer accounts on douglas1 (2026-10-19, SOP-103, SOP-104).
 - [ ] Package mirror: moved to build plan phase 3, before the second node or the first customer.
 - [ ] **Claude:** Read-only checks on douglas1: Secure Boot, BIOS (Above 4G decoding, Resizable BAR), kernel headers.
 - [x] **Claude:** douglas1's memory sticks: 8× 32 GB DDR4-2133, all 8 slots full (2026-10-19). Upgrade in Linear COP-43.

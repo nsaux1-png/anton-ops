@@ -34,6 +34,7 @@ Once, when setting up anton or a replacement head node. Safe to re-run.
 
 ## Notes
 - Ansible and `./cluster` use the system Python (`/usr/bin/python3`, version 3.9), which has the dnf and SELinux bindings. On anton and douglas1, the `python3` in papaya's PATH is a Miniconda Python 3.14; it isn't used.
+- Ansible warns `Collection ansible.posix does not support Ansible version 2.14.18`. The collection only declares a newer minimum; its firewalld module works here (SOP-103).
 - dnf installs the newest versions available. If a later run gets different versions, record them here.
 
 ## History

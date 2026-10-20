@@ -14,6 +14,8 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-001](SOP-001-cluster-command.md) | Running `./cluster` commands | proved 2026-10-19 |
 | [SOP-101](SOP-101-install-ansible.md) | Install Ansible on anton | proved 2026-10-19 |
 | [SOP-102](SOP-102-hosts-file.md) | `/etc/hosts` on every machine | proved 2026-10-19 |
+| [SOP-103](SOP-103-admin-proxy.md) | Admin web proxy on anton; cluster-network firewall zone | proved 2026-10-19 |
+| [SOP-104](SOP-104-customer-network-limits.md) | Network limits for customer accounts on compute nodes | proved 2026-10-19 (boot loading checked at next reboot) |
 
 ## Template
 Copy this for a new SOP, named `SOP-NNN-short-name.md`:
