@@ -78,6 +78,14 @@
   changed_when: ledger_setup.stdout | length > 0
   when: not ansible_check_mode
 
+# Every apply: a customer added or changed now has their prices and Slurm credit limit at once, not
+# only after the next hourly run.
+- name: Prices and Slurm credit limits
+  ansible.builtin.command: /usr/local/sbin/cluster-billing sync
+  register: billing_sync
+  changed_when: billing_sync.stdout | length > 0
+  when: not ansible_check_mode
+
 - name: Hourly billing run
   ansible.builtin.copy:
     src: "{{ item }}"

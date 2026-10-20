@@ -66,6 +66,11 @@ class CreditsAndLimits(unittest.TestCase):
         self.assertEqual(limit, used + max(0, after) * 60 // 50_000)
         billing("adjust", "c0002", "-1.50", "--ref", ref + "-undo", "--note", "live test: take the grant back")
 
+    def test_sync_is_idempotent(self):
+        self.assertEqual(billing("sync").returncode, 0)
+        r = billing("sync")
+        self.assertEqual((r.returncode, r.stdout), (0, ""), "a second sync must find nothing to change")
+
     def test_every_customer_runs_under_their_own_credit_limit(self):
         for code in ("c0001", "c0002"):
             with self.subTest(customer=code):

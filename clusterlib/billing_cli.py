@@ -198,6 +198,15 @@ def cmd_hourly(args, ledger, customers, uids, rates):
     return 0
 
 
+def cmd_sync(args, ledger, customers, uids, rates):
+    """Prices and Slurm credit limits only. Run by every ./cluster apply, so a new customer never runs
+    a job without a credit limit, even before the next hourly run."""
+    now = utcnow()
+    sync_prices(ledger, customers, rates, now, print)
+    sync_slurm_limits(ledger, customers, rates, now, print)
+    return 0
+
+
 # --- admin commands -------------------------------------------------------------------------------
 
 def need_customer(customers, code):
@@ -361,6 +370,7 @@ def parser():
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("setup").set_defaults(func=cmd_setup)
     sub.add_parser("hourly").set_defaults(func=cmd_hourly)
+    sub.add_parser("sync").set_defaults(func=cmd_sync)
     for kind in ("topup", "grant"):
         q = sub.add_parser(kind)
         q.add_argument("customer")
