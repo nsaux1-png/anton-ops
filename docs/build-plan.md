@@ -82,7 +82,7 @@ Then commit and push. Status as of 2026-10-19.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 8.1 | Node, GPU, disk and service health; email alerts | 171 | Say where alerts go (D34) | |
+| 8.1 | Node, GPU, disk and service health; email alerts | 171 | Say where alerts go (D34) | ◐ `./cluster health` done 2026-10-20; alerts wait for D34 |
 
 ## Phase 9: Backups
 **Tests written in this phase:** a backup restores into a scratch database and matches the original.
@@ -95,7 +95,7 @@ Then commit and push. Status as of 2026-10-19.
 The tests themselves are written in each phase above. This phase only schedules and reports them.
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 10.1 | The whole suite weekly (Sunday night) on a systemd timer; a quick run after every `./cluster apply` or `upgrade`; results by email | 191 | | |
+| 10.1 | The whole suite weekly (Sunday night) on a systemd timer; a quick run after every `./cluster apply` or `upgrade`; results by email | 191 | | ◐ weekly timer installed 2026-10-20; results by email wait for D34 |
 
 ## Phase 11: Launch
 | # | What Claude does | SOP | You | Status |

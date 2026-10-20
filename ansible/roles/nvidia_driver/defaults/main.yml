@@ -12,3 +12,6 @@ nvidia_driver_packages:
 
 # CUDA compiler, used only to build the GPU check in the live tests. Customers bring their own CUDA.
 nvidia_test_cuda: "13-0"
+
+# Off until the boot hang of 2026-10-19 is understood: the role never reboots a node by itself.
+nvidia_driver_auto_reboot: false

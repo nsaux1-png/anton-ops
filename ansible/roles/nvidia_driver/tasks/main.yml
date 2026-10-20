@@ -81,11 +81,18 @@
   changed_when: false
   check_mode: false
 
-- name: Reboot to load the driver
+# Automatic reboots are off while the boot hang of 2026-10-19 isn't understood (ops log
+# 2026-10-19-step2-gpu-driver): an apply must never reboot a node back into it.
+- name: Reboot to load the driver (only where nvidia_driver_auto_reboot is true)
   ansible.builtin.reboot:
     reboot_timeout: 1200
     msg: "Rebooting to load the NVIDIA driver (SOP-111)"
-  when: nvidia_loaded.stdout | trim != 'nvidia' and not ansible_check_mode
+  when: nvidia_loaded.stdout | trim != 'nvidia' and not ansible_check_mode and nvidia_driver_auto_reboot
+
+- name: Say that a reboot is needed
+  ansible.builtin.debug:
+    msg: "The NVIDIA driver isn't loaded on {{ inventory_hostname }}: reboot it by hand, following SOP-111."
+  when: nvidia_loaded.stdout | trim != 'nvidia' and not nvidia_driver_auto_reboot
 
 # Only after the reboot: the daemon needs the NVIDIA driver loaded.
 - name: Persistence mode, so GPUs stay ready between jobs
