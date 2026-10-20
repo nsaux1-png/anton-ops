@@ -73,9 +73,9 @@ Then commit and push. Status as of 2026-10-19.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 7.1 | `rates.yml` and per-customer prices; the ledger (whole-number amounts); credit batches with 12-month expiry; hourly charging keyed on `DBIndex`; Slurm limits sync (usage + what the balance buys); the 10-minute grace step | 161 | Set the prices (D29) and what 1 credit is worth (D40) | |
-| 7.2 | Customer commands: `credits`, `myusage`, `prices`, `mystorage` | 162 | | |
-| 7.3 | Admin commands: `credits topup/refund/adjust`, statements, `billing check`. Dry-run a month on the test accounts. | 211 | Review a test statement | |
+| 7.1 | `rates.yml` and per-customer prices; the ledger (whole-number amounts); credit batches with 12-month expiry; hourly charging keyed on `DBIndex`; Slurm limits sync (usage + what the balance buys); the 10-minute grace step | 161 | Set the prices (D29) and what 1 credit is worth (D40) | ◐ done on anton 2026-10-20 with placeholder prices; real-job charging and grace wait for douglas1 |
+| 7.2 | Customer commands: `credits`, `myusage`, `prices`, `mystorage` | 162 | | ✅ done 2026-10-20 |
+| 7.3 | Admin commands: `credits topup/refund/adjust`, statements, `billing check`. Dry-run a month on the test accounts. | 211 | Review a test statement | ◐ top-up, grant, adjust, refund, balance, statement done 2026-10-20; billing check and a month's dry run wait for jobs |
 
 ## Phase 8: Monitoring and alerts
 **Tests written in this phase:** each alert fires on a simulated fault.

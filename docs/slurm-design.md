@@ -12,6 +12,7 @@
 7. Corrected: no internet for **customers' jobs**; admins reach the internet from compute nodes through a logged proxy on anton. System packages come from a mirror before the second node. Step-by-step build plan in [`build-plan.md`](build-plan.md).
 8. Independent plan review applied ([`reviews/2026-10-19-plan-review.md`](reviews/2026-10-19-plan-review.md)). Fixed: the credit limit formula, storage enforced by group quotas, Slurm's own job-script purge, no GPU energy accounting, `ProtectProc` instead of `hidepid`, integer billing units, one partition per GPU model, running jobs charged hourly, CUDA 12.8+. New questions Q8–Q9.
 9. Tests are written with each build step and run on the cluster, not GitHub. Customer folders live under `/cluster`, so admin home folders stay local.
+10. Built (2026-10-20): amounts are whole micro-credits; prices are recorded per customer with the time they took effect; every apply sets prices and Slurm credit limits (`cluster-billing sync`); customers' only sudo is their four billing views (SOP-162).
 
 ## Requirements (user, 2026-10-19)
 1. Track usage per user.

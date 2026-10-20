@@ -26,6 +26,8 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-152](SOP-152-slurm-controller.md) | Slurm controller, database and shared configuration | proved on anton 2026-10-20 |
 | [SOP-153](SOP-153-job-rules.md) | Job-size rules (`job_submit.lua`) | proved 2026-10-20 |
 | [SOP-154](SOP-154-slurm-accounts.md) | Slurm accounts and limits | proved on anton 2026-10-20 |
+| [SOP-161](SOP-161-billing.md) | Billing and credits: how it works | proved on anton 2026-10-20 |
+| [SOP-162](SOP-162-what-customers-see.md) | What customers see about their own billing | proved 2026-10-20 |
 | [SOP-201](SOP-201-os-updates.md) | OS updates on compute nodes (`./cluster upgrade`) | proved 2026-10-19 on douglas1 |
 | [SOP-210](SOP-210-customers-and-users.md) | Adding and changing customers and users | commands tested in a sandbox |
 
@@ -60,3 +62,4 @@ How to reverse it.
 ## History
 Date: what changed, commit, ops-log link.
 ```
+| [SOP-211](SOP-211-credits.md) | Top-ups, refunds, adjustments, balances, statements | tested 2026-10-20 |
