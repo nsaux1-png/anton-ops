@@ -42,3 +42,7 @@ Private project under @nicolas478; can be moved to a group later without losing 
 - **D36 Sensitive data: none at launch.** The terms say no regulated data (health, personal data). A stricter, isolated partition can be added later for a customer who needs it.
 
 **Why:** the user's answers, 2026-10-19. Designing for external customers only keeps one set of rules for everyone.
+
+## 2026-10-19: Power (plan D7, D47)
+- **D7 UPS: none.** A power cut stops everything at once. To limit the damage: the accounting database uses crash-safe settings and is dumped nightly (D21), and jobs lost in an outage are refunded as node failures (D31).
+- **D47 Power for douglas1: adequate.** The user confirmed the circuits are sized for douglas1's full load (about 3.3–3.6 kW), so GPUs run at full power with no software cap. A full-load test after the driver install still checks temperatures and stability.

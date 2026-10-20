@@ -44,7 +44,8 @@ How to read this:
 - **D4. Network upgrade:** add a 10 Gb (or faster) link between anton and compute nodes? douglas1 already has a second, unused port (`enp66s0f0np0`), likely fast; anton would need a NIC and there'd need to be a switch. *Recommended: yes, before paying customers run data-heavy GPU work.*
 - **D5. Local scratch on GPU nodes:** add NVMe drives to douglas1 for fast per-job scratch? *Recommended: yes, 2–4 TB.*
 - **D6. Separate login node later:** *Recommended: start with anton as login node, split when we pass ~10 active users or see login-node load problems.*
-- **D7. UPS:** is there one? If so, can it signal shutdown?
+- **D7. UPS:** is there one? If so, can it signal shutdown? **→ Decided 2026-10-19: no UPS.**
+- **D47. Power for douglas1** (about 3.3–3.6 kW at full load). **→ Decided 2026-10-19: the power supply is adequate; GPUs run at full power, no software cap.**
 
 ---
 
