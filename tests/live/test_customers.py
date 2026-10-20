@@ -205,5 +205,29 @@ class Logins(unittest.TestCase):
         self.assertTrue(seen <= {A}, f"saw processes of {seen - {A}}")
 
 
+
+class BruteForce(unittest.TestCase):
+    """fail2ban blocks addresses that keep failing to log in (SOP-142)."""
+
+    def test_sshd_jail_is_on(self):
+        out = run(HEAD, "sudo fail2ban-client status sshd").stdout
+        self.assertIn("Currently banned", out)
+
+    def test_a_ban_becomes_a_firewall_rule_and_lifts(self):
+        address = "203.0.113.77"        # a documentation address: never a real client
+        try:
+            run(HEAD, f"sudo fail2ban-client set sshd banip {address}")
+            rules = run(HEAD, "sudo firewall-cmd --list-rich-rules").stdout
+            self.assertIn(address, rules)
+        finally:
+            run(HEAD, f"sudo fail2ban-client set sshd unbanip {address}")
+        self.assertNotIn(address, run(HEAD, "sudo firewall-cmd --list-rich-rules").stdout)
+
+    def test_the_cluster_network_and_localhost_are_never_blocked(self):
+        out = run(HEAD, "sudo fail2ban-client get sshd ignoreip").stdout
+        self.assertIn("127.0.0.1/8", out)
+        self.assertIn("172.16.50.0/24", out)
+
+
 if __name__ == "__main__":
     unittest.main()

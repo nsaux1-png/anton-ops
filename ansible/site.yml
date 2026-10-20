@@ -23,6 +23,7 @@
   become: true
   roles:
     - firewall
+    - fail2ban
     - time
     - admin_proxy
     - storage

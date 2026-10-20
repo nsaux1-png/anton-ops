@@ -1,0 +1,33 @@
+# fail2ban on the login node (SOP-142): an address that fails to log in over SSH 5 times in 10 minutes
+# is blocked for an hour, by a firewalld rule. Local addresses and the cluster network are never blocked.
+- name: fail2ban, with firewalld doing the blocking
+  ansible.builtin.dnf:
+    name: [fail2ban-server, fail2ban-firewalld]
+    state: present
+  register: fail2ban_packages
+
+- name: fail2ban settings
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.d/cluster.local
+    content: |
+      # Managed by Ansible (ansible/roles/fail2ban), SOP-142.
+      [DEFAULT]
+      backend = systemd
+      bantime = 1h
+      findtime = 10m
+      maxretry = 5
+      ignoreip = 127.0.0.1/8 ::1 {{ cluster_network }}
+
+      [sshd]
+      enabled = true
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Run fail2ban now and at boot
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and fail2ban_packages is changed)
