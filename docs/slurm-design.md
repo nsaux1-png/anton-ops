@@ -1,6 +1,6 @@
 # Slurm system design
 
-**Status: DRAFT, 2026-10-19 (third round).** Built from the user's requirements given that day. This page is the overall shape; [`plan.md`](plan.md) has the details of each piece.
+**Status: DRAFT, 2026-10-19 (fourth round).** Built from the user's requirements given that day. This page is the overall shape; [`plan.md`](plan.md) has the details of each piece.
 
 ## Requirements (user, 2026-10-19)
 1. Track usage per user.
@@ -12,7 +12,7 @@
 7. Limits on how much memory and CPU a job can take with its GPUs. Nobody can take 3 GPUs and all of the node's memory.
 8. Prepaid credits that are drawn down as customers use the cluster.
 9. A default price list for everyone, overridden for many customers.
-10. Credits expire after a fixed time (e.g. 12 months).
+10. Credits expire 12 months after purchase. No free trials.
 11. Test accounts, and a test suite that runs regularly (weekly).
 
 ## 1. Tracking per user
@@ -113,10 +113,14 @@ In practice each GPU's share has to be whole cores, because two customers never 
 | 11 | 5 cores, 21 GB | 55 cores, 231 GB | 1 core, 20 GB |
 | 12 | 4 cores, 20 GB | 48 cores, 240 GB | 8 cores, 11 GB |
 
-- **Proposal: sell the 11-GPU size from day one, 5 cores + 21 GB per GPU** (Q4). The size then doesn't shrink when the 11th card goes in.
-- Note: 21 GB of RAM per 16 GB GPU is lean for machine-learning work. A common rule of thumb is 1.5–2× the GPU's memory. A RAM upgrade would allow more, so check what's installed (todo, next up).
+- **Decided (Q4): 5 cores + 20 GB per GPU**, sized for 11 GPUs from day one, so the size never shrinks.
+  - With 11 GPUs, jobs use 55 cores and 220 GB, leaving the system 1 core and 31 GB.
+  - With 10 GPUs, 6 cores and 51 GB stay unused. Unsold capacity costs nothing; the node just has headroom.
+  - 5 cores is 10 threads, which clouds would call 10 vCPUs. That's within the usual range for GPU cloud offers (roughly 4–16 vCPUs per GPU). In GPU jobs the CPU mostly feeds data to the GPU, and 10 threads is enough for typical data loading.
+  - The memory left over matters: the OS, the GPU driver and the file cache need it. If jobs could take every last GB, the node could freeze and take every job on it down.
+- Note: 20 GB of RAM per 16 GB GPU is lean for machine-learning work. A common rule of thumb is 1.5–2× the GPU's memory. A RAM upgrade would allow more, so check what's installed (todo, next up).
 - **Defaults:** a job gets the full per-GPU share unless it asks for less (`DefCpuPerGPU`, `DefMemPerGPU`). It can't ask for more. A job that needs more RAM takes more GPUs.
-- **Checked at submission:** Slurm has a "default memory per GPU" setting but no "maximum per GPU" one. A short `job_submit.lua` script (run by Slurm on every submission) therefore rejects oversized jobs with a clear message, e.g. "gpu partition: at most 5 cores and 21 GB per GPU". `EnforcePartLimits=ALL` rejects jobs that break partition limits at submission instead of leaving them queued forever.
+- **Checked at submission:** Slurm has a "default memory per GPU" setting but no "maximum per GPU" one. A short `job_submit.lua` script (run by Slurm on every submission) therefore rejects oversized jobs with a clear message, e.g. "gpu partition: at most 5 cores and 20 GB per GPU". `EnforcePartLimits=ALL` rejects jobs that break partition limits at submission instead of leaving them queued forever.
 - **Enforced while running:** cgroups hold each job to what it was given. A job that goes over its memory is killed and recorded as `OUT_OF_MEMORY`. It only sees its own GPUs.
 - **GPU nodes run GPU jobs only:** a job in `gpu` must ask for at least one GPU. Otherwise a CPU-only job could take the cores and memory and leave GPUs that nobody can use.
 - **Billing safety net:** `PriorityFlags=MAX_TRES` bills a job for the **largest share of the node** it holds, whether that's GPUs, cores or memory. With the fixed size per GPU this just equals the GPU count. It matters if we loosen the size later, and on CPU nodes: 1 core with all the RAM is billed as the whole node.
@@ -165,7 +169,7 @@ The full design is in plan section 12.2. In short:
 - **At zero balance** (decided, Q6): jobs stop. Files stay and storage keeps charging, so the balance can go negative for storage only. After 30 days negative, with email warnings before then, the files are deleted.
 
 ### Expiry (Q7)
-- Each top-up or grant is its own **batch** of credits with an expiry date: 12 months after purchase for top-ups, and possibly shorter for free trial credits.
+- Each top-up is its own **batch** of credits that expires 12 months after purchase (decided, Q7). There are no free trials (plan D43).
 - Charges use the **batch that expires soonest** first. With equal terms that's simply oldest first (FIFO). Using newest first would let more of a customer's credits expire, which is unfair and invites disputes.
 - When a batch expires, whatever is left in it becomes an `expiry` entry in the ledger. Customers get a warning 30 days before, and statements show each batch and its expiry date.
 - Edge cases, each with a test:
@@ -213,7 +217,7 @@ The full design is in plan section 12.2. In short:
 - ~~Q1. Usernames~~ → **decided:** two letters + two digits, random (section 3).
 - ~~Q2. Hide nodes and GPUs?~~ → **decided:** customers can see them (section 5).
 - **Q3.** Admin logins only through a WireGuard VPN (also in the office), since the upstream network is shared?
-- **Q4.** Sell the 11-GPU size from day one (5 cores + 21 GB per GPU)?
+- ~~Q4. Size per GPU~~ → **decided:** 5 cores + 20 GB, sized for 11 GPUs (section 7).
 - ~~Q5. Store job scripts?~~ → **decided:** yes, 60 days (section 8).
 - ~~Q6. Files at zero balance?~~ → **decided:** kept and charged; deleted after 30 days negative (section 9).
-- **Q7.** Credit expiry: 12 months for top-ups, soonest-expiring first? How long for free trial credits?
+- ~~Q7. Credit expiry~~ → **decided:** 12 months, soonest-expiring first; no free trials (section 9).

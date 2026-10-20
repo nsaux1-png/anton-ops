@@ -247,7 +247,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
   | Entry type | Example |
   |---|---|
   | `topup` | customer bought 1,000 credits (invoice #, who entered it) |
-  | `grant` | free trial or promotional credits |
+  | `grant` | goodwill or promotional credits, and test accounts' credits (no free trials, D43) |
   | `charge` | job 12345 used 37.5 credits |
   | `refund` | job 12345 refunded, node failure |
   | `adjustment` | correction, with a written reason |
@@ -281,8 +281,8 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 - **D33. Invoicing:** which tool sends invoices and takes payment, and who reviews before it goes out? *Is there an accounting system (e.g. QuickBooks, Stripe) top-ups should come from?*
 - **D40. What 1 credit is worth:** a fixed money amount (e.g. 1 credit = $0.01), or 1 GPU-hour-equivalent? *Recommended: tie credits to money. Prices can then change without changing anyone's balance.*
 - **D41. Running out mid-job:** with the "must cover full time limit" rule a job can't overdraw by much. Do we also allow a small overdraft (grace) so jobs aren't blocked at e.g. 0.5 credits short? *Recommended: no overdraft at launch.*
-- **D42. Do credits expire?** *Recommended: after 12 months, stated in the terms. Expired credits are a ledger entry, not a silent deletion.* **→ 2026-10-19: the user wants expiry (e.g. 12 months). Design in [`slurm-design.md`](slurm-design.md) section 9 (Q7).**
-- **D43. Free trial credits** for new customers? How many?
+- **D42. Do credits expire?** *Recommended: after 12 months, stated in the terms. Expired credits are a ledger entry, not a silent deletion.* **→ Decided 2026-10-19: credits expire 12 months after purchase; the batch that expires soonest is used first. Design in [`slurm-design.md`](slurm-design.md) section 9.**
+- **D43. Free trial credits** for new customers? How many? **→ Decided 2026-10-19: none. Compute is a commodity; customers buy credits from the start.**
 - **D44. Top-ups:** entered by an admin after payment is received, or automatic from a payment system (e.g. Stripe webhook)? *Recommended: admin-entered at launch; automate once volume justifies it.*
 - **D45. Ledger storage:** a table in the same MariaDB as Slurm accounting, or a separate database? *Recommended: same MariaDB server, separate database, backed up together.*
 
@@ -344,6 +344,12 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 ---
 
 ## 17. Standard procedures (each becomes a `./cluster` command plus a page in `docs/procedures/`)
+
+**How an SOP is made (2026-10-19)**
+1. **Discovery run:** the first time, Claude works the step out on the real machine. Every command and finding goes in the ops log.
+2. **Written down:** the steps become an Ansible role or script, run by a `./cluster` command, plus an SOP page covering purpose, preconditions, command, expected output, checks and rollback.
+3. **Proof run:** the SOP is run again from a clean state (e.g. undo, then redo) exactly as written, with no improvising. Only then is it done. Its checks join the test suite.
+4. **Running an SOP needs no AI.** Billing, credits and limits are plain code with tests. Where judgment can't be avoided (hardware faults, unfamiliar errors), the SOP is a checklist: "if this, do that; otherwise escalate".
 
 | Procedure | What it does |
 |---|---|

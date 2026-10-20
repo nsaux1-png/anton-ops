@@ -66,3 +66,11 @@ Private project under @nicolas478; can be moved to a group later without losing 
 - **NVIDIA driver on douglas1 moved up** to step 2 of the build order.
 
 **Why:** the user's answers, 2026-10-19. Job scripts help investigate abuse; 60 days is long enough for that without holding customer code forever.
+
+## 2026-10-19: GPU job size, credit expiry, no free trials, how SOPs are made (design Q4, Q7; plan D42, D43)
+- **Q4: 5 cores + 20 GB RAM per GPU**, sized for an eventual 11 GPUs on douglas1, so the size never shrinks. With 11 GPUs the system keeps 1 core and 31 GB.
+- **Q7 / D42: credits expire 12 months after purchase.** The batch that expires soonest is used first.
+- **D43: no free trials.** Compute is a commodity; customers buy credits from the start.
+- **SOPs:** discovery run, then script plus SOP page, then a proof run from a clean state with no improvising. Running an SOP needs no AI (plan section 17).
+
+**Why:** the user's answers, 2026-10-19.
