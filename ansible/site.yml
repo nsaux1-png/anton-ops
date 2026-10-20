@@ -1,0 +1,6 @@
+# Everything ./cluster apply sets up. Roles run in the order listed.
+- name: Every machine
+  hosts: all
+  become: true
+  roles:
+    - hosts

@@ -1,0 +1,9 @@
+# Managed by Ansible (ansible/roles/hosts) from config/nodes.yml.
+# Local edits are overwritten by the next ./cluster apply.
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+
+# Cluster network 172.16.50.0/24
+{% for host in groups['all'] | sort %}
+{{ hostvars[host].cluster_ip }} {{ host }}
+{% endfor %}

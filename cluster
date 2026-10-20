@@ -1,0 +1,240 @@
+#!/usr/bin/python3
+"""./cluster: the one command for admin tasks on the cluster (SOP-001).
+
+Every run is logged in /var/log/cluster-ops/: who ran it, when, from which
+commit, the full output and the exit code, plus one line in index.log.
+
+Exit codes: 0 done, 1 failed, 2 refused (bad input, uncommitted changes, or
+not confirmed). A refused run changes nothing.
+"""
+
+import argparse
+import datetime
+import getpass
+import os
+import re
+import socket
+import subprocess
+import sys
+import time
+import traceback
+
+REPO = os.path.dirname(os.path.realpath(__file__))
+ANSIBLE_DIR = os.path.join(REPO, "ansible")
+INVENTORY = os.path.join(REPO, "config", "nodes.yml")
+LOG_DIR = os.environ.get("CLUSTER_LOG_DIR", "/var/log/cluster-ops")
+
+EXIT_OK, EXIT_FAILED, EXIT_REFUSED = 0, 1, 2
+
+
+class Refused(Exception):
+    """Stopped before changing anything (exit code 2)."""
+
+
+def git(*args):
+    return subprocess.run(["git", "-C", REPO, *args], capture_output=True, text=True).stdout
+
+
+class RunLog:
+    """One log file per run, and a line in index.log when the run ends."""
+
+    def __init__(self, argv):
+        self.argv = argv
+        self.started = time.time()
+        self.when = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+        self.operator = os.environ.get("SUDO_USER") or getpass.getuser()
+        self.commit = git("rev-parse", "--short", "HEAD").strip() or "unknown"
+        self.uncommitted = git("status", "--porcelain")
+        self.file = self._open(datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + argv[0])
+
+        state = self.commit + ("+uncommitted" if self.uncommitted else "")
+        self.say(f"== ./cluster {' '.join(argv)}   {self.when}   operator={self.operator}"
+                 f"   host={socket.gethostname()}   commit={state}")
+        if self.uncommitted:
+            self.write("-- uncommitted changes in the repo:\n" + self.uncommitted + git("diff", "HEAD"))
+
+    def _open(self, base):
+        # 0640: the folder's group (admins) can read the logs, nobody else.
+        for n in range(1, 100):
+            self.path = os.path.join(LOG_DIR, base + (f"-{n}" if n > 1 else "") + ".log")
+            try:
+                fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+                return os.fdopen(fd, "w", buffering=1)
+            except FileExistsError:
+                continue
+        raise RuntimeError(f"too many runs logged this second in {LOG_DIR}")
+
+    def write(self, text):
+        """To the log only."""
+        self.file.write(text if text.endswith("\n") else text + "\n")
+
+    def say(self, text):
+        """To the screen and the log."""
+        print(text, flush=True)
+        self.write(text)
+
+    def run(self, cmd, env=None, cwd=None):
+        """Run a command, showing and logging its output as it comes. Returns (exit code, output)."""
+        self.say("$ " + " ".join(cmd))
+        proc = subprocess.Popen(cmd, env=env, cwd=cwd, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        lines = []
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            self.file.write(line)
+            lines.append(line)
+        return proc.wait(), "".join(lines)
+
+    def close(self, code):
+        seconds = round(time.time() - self.started)
+        self.say(f"== exit={code}   duration={seconds}s   log={self.path}")
+        self.file.close()
+        with open(os.path.join(LOG_DIR, "index.log"), "a") as index:
+            index.write("\t".join([self.when, self.operator, f"exit={code}", self.commit,
+                                   " ".join(self.argv), os.path.basename(self.path)]) + "\n")
+
+
+def ansible_env():
+    env = dict(os.environ)
+    env["ANSIBLE_CONFIG"] = os.path.join(ANSIBLE_DIR, "ansible.cfg")
+    env["ANSIBLE_NOCOLOR"] = "1"
+    env["PYTHONUNBUFFERED"] = "1"  # so Ansible's output reaches the screen and log task by task
+    return env
+
+
+def count_changes(output):
+    """Total of changed=N over the hosts in Ansible's PLAY RECAP."""
+    return sum(int(n) for n in re.findall(r"^\S+\s+:\s+ok=\d+\s+changed=(\d+)", output, re.M))
+
+
+def confirm(log, question, yes):
+    if yes:
+        log.say(f"{question} yes (--yes)")
+        return
+    if not sys.stdin.isatty():
+        raise Refused(f"{question} There's no terminal to ask on; pass --yes to confirm.")
+    answer = input(f"{question} [y/N] ").strip().lower()
+    log.write(f"{question} [y/N] {answer}")
+    if answer not in ("y", "yes"):
+        raise Refused("Not confirmed; nothing was changed.")
+
+
+# --- commands ---------------------------------------------------------------
+
+def cmd_ping(args, log):
+    """Can Ansible reach every machine and become root there?"""
+    code, _ = log.run(["ansible", "all", "-i", INVENTORY, "-m", "ansible.builtin.ping", "--become"],
+                      env=ansible_env(), cwd=ANSIBLE_DIR)
+    return EXIT_OK if code == 0 else EXIT_FAILED
+
+
+def cmd_apply(args, log):
+    """Preview, confirm, apply, then check that nothing is left to change."""
+    if log.uncommitted and not args.allow_dirty:
+        raise Refused("The repo has uncommitted changes. Commit them first, so this run matches a commit "
+                      "(or pass --allow-dirty for a discovery run; the diff goes in the log).")
+    playbook = ["ansible-playbook", "-i", INVENTORY, "site.yml"]
+    if args.limit:
+        playbook += ["--limit", args.limit]
+    if args.tags:
+        playbook += ["--tags", args.tags]
+    env = ansible_env()
+
+    log.say("-- Preview (Ansible check mode; nothing is changed):")
+    code, out = log.run(playbook + ["--check", "--diff"], env=env, cwd=ANSIBLE_DIR)
+    if code != 0:
+        log.say("Preview failed; nothing was changed.")
+        return EXIT_FAILED
+    changes = count_changes(out)
+    if changes == 0:
+        log.say("Nothing to change.")
+        return EXIT_OK
+    if args.dry_run:
+        log.say(f"Dry run: the {changes} change(s) above were not made.")
+        return EXIT_OK
+    confirm(log, f"Make the {changes} change(s) shown above?", args.yes)
+
+    log.say("-- Applying:")
+    code, _ = log.run(playbook + ["--diff"], env=env, cwd=ANSIBLE_DIR)
+    if code != 0:
+        log.say("Apply failed; see above.")
+        return EXIT_FAILED
+
+    log.say("-- Checking: a second preview should find nothing left to change.")
+    code, out = log.run(playbook + ["--check"], env=env, cwd=ANSIBLE_DIR)
+    left = count_changes(out)
+    if code != 0 or left:
+        log.say(f"Not settled: the check found {left} change(s) still to make. A role isn't repeatable; fix it.")
+        return EXIT_FAILED
+    log.say("Done and settled.")
+    return EXIT_OK
+
+
+def cmd_runs(args):
+    """Not logged itself: it only reads the index."""
+    try:
+        with open(os.path.join(LOG_DIR, "index.log")) as index:
+            lines = index.readlines()
+    except FileNotFoundError:
+        print("No runs logged yet.")
+        return EXIT_OK
+    for line in lines[-args.n:]:
+        print(line, end="")
+    return EXIT_OK
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(prog="./cluster", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True, metavar="command")
+
+    p = sub.add_parser("ping", help="check that Ansible reaches every machine and can become root")
+    p.set_defaults(func=cmd_ping)
+
+    p = sub.add_parser("apply", help="bring every machine in line with the repo (preview first)")
+    p.add_argument("--dry-run", action="store_true", help="only show what would change")
+    p.add_argument("--yes", action="store_true", help="don't ask before changing (for cron and agents)")
+    p.add_argument("--limit", help="only these machines (Ansible --limit)")
+    p.add_argument("--tags", help="only these parts (Ansible --tags)")
+    p.add_argument("--allow-dirty", action="store_true",
+                   help="run with uncommitted changes (discovery runs only; the diff is logged)")
+    p.set_defaults(func=cmd_apply)
+
+    p = sub.add_parser("runs", help="list recent runs from the run log")
+    p.add_argument("-n", type=int, default=20, help="how many (default 20)")
+    return parser
+
+
+def main(argv):
+    args = build_parser().parse_args(argv)
+    if args.command == "runs":
+        return cmd_runs(args)
+    if os.geteuid() == 0:
+        print("Run ./cluster from your own admin account, not as root; it uses sudo where it needs to.",
+              file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        log = RunLog(argv)
+    except OSError as e:
+        print(f"Can't write the run log in {LOG_DIR}: {e}\n"
+              "Run scripts/bootstrap/02-install-ansible.sh, and check your account is in group wheel.",
+              file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        code = args.func(args, log)
+    except Refused as e:
+        log.say(f"REFUSED: {e}")
+        code = EXIT_REFUSED
+    except KeyboardInterrupt:
+        log.say("Interrupted.")
+        code = EXIT_FAILED
+    except Exception:
+        log.say(traceback.format_exc())
+        code = EXIT_FAILED
+    log.close(code)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
