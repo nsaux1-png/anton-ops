@@ -382,7 +382,7 @@ class Ledger:
             c.execute("SELECT * FROM job_charges WHERE customer=%s AND final=0", (customer,))
             rows = c.fetchall()
         self.db.rollback()
-        return rows
+        return list(rows)
 
     def jobs_for(self, customer, username, month):
         """A customer's jobs that started in a month ("2026-10"), or only one user's."""
@@ -397,7 +397,7 @@ class Ledger:
             c.execute(sql + " ORDER BY started_at", args)
             rows = c.fetchall()
         self.db.rollback()
-        return rows
+        return list(rows)
 
     # --- storage ------------------------------------------------------------------------------------
 
