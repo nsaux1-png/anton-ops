@@ -100,7 +100,7 @@ The tests themselves are written in each phase above. This phase only schedules 
 ## Phase 11: Launch
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 11.1 | User guide (log in, submit jobs, checkpointing with signals, see costs) | | | |
+| 11.1 | User guide (log in, submit jobs, checkpointing with signals, see costs) | | | ◐ draft written 2026-10-20 ([`user-guide.md`](user-guide.md)); login address, prices and support contact to be filled in |
 | 11.2 | Terms (prices, credits expire after 12 months, scripts kept 60 days, no regulated data) | | Have them reviewed | |
 | 11.3 | Separate login host for customers (design Q8), remove the temporary passwordless sudo, security review | | Decide Q8 | |
 | 11.4 | First friendly customer | | Pick one | |
