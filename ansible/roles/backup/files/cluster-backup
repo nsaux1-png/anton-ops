@@ -15,7 +15,6 @@ An off-site copy is still to come (plan D39).
 """
 
 import datetime
-import gzip
 import hashlib
 import json
 import os
@@ -54,11 +53,18 @@ def sha256(path):
 
 
 def dump(db, path, options):
-    with gzip.open(path, "wt") as out:
-        p = subprocess.run(["mysqldump", "--single-transaction", "--routines", "--events"] + options + [db],
-                           stdout=out, stderr=subprocess.PIPE, text=True)
-    if p.returncode != 0:
-        raise RuntimeError(f"mysqldump {db} failed: {p.stderr}")
+    """mysqldump piped through gzip into path (a program's output can't go to a gzip file object)."""
+    with open(path, "wb") as out, open(path + ".err", "wb") as err:
+        dumper = subprocess.Popen(["mysqldump", "--single-transaction", "--routines", "--events"] + options + [db],
+                                  stdout=subprocess.PIPE, stderr=err)
+        zipper = subprocess.run(["gzip", "-c"], stdin=dumper.stdout, stdout=out)
+        dumper.stdout.close()
+        failed = dumper.wait() != 0 or zipper.returncode != 0
+    with open(path + ".err") as err:
+        message = err.read()
+    os.remove(path + ".err")
+    if failed:
+        raise RuntimeError(f"mysqldump {db} failed: {message}")
 
 
 def ledger_summary(db):
