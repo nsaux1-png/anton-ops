@@ -40,6 +40,7 @@ class Money(unittest.TestCase):
         self.assertEqual(b.show(12_344_999), "12.34")
         self.assertEqual(b.show(-5_000), "-0.01")
         self.assertEqual(b.show(0), "0.00")
+        self.assertEqual(b.show(-4), "0.00")
 
 
 class Prices(unittest.TestCase):

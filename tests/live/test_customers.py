@@ -203,9 +203,10 @@ class Logins(unittest.TestCase):
         self.assertEqual(setting(A, "127.0.0.1", "pubkeyauthentication"), "yes")
         self.assertEqual(setting(A, "203.0.113.5", "pubkeyauthentication"), "no", "test users only log in locally")
 
-    def test_customers_have_no_sudo(self):
+    def test_customers_have_no_sudo_except_their_billing_views(self):
         out = run(HEAD, f"sudo -l -U {A}").stdout
-        self.assertIn("not allowed to run sudo", out)
+        allowed = [line.strip() for line in out.splitlines() if "NOPASSWD" in line or "(ALL)" in line]
+        self.assertEqual(allowed, ["(root) NOPASSWD: /usr/local/sbin/cluster-billing customer-view *"])
 
     def test_customers_see_only_their_own_processes(self):
         r = ssh_login(A, "ps -eo user= | sort -u; test -e /proc/1 && echo SEES_PID1; true")

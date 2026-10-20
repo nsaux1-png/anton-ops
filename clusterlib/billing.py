@@ -35,8 +35,9 @@ def to_micro(value):
 
 
 def show(micro):
-    """Micro-credits as credits with two decimals, rounded half up: "12.35"."""
-    return str((Decimal(micro) / MICRO).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    """Micro-credits as credits with two decimals, rounded half up: "12.35". Never "-0.00"."""
+    rounded = (Decimal(micro) / MICRO).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return str(rounded if rounded != 0 else Decimal("0.00"))
 
 
 # --- prices -----------------------------------------------------------------------------------------
