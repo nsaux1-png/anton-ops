@@ -30,6 +30,7 @@ Every machine's `/etc/hosts` reads:
 ```
 
 ## Checks
+- **Automated:** `./cluster test --live -k test_hosts`.
 - `./cluster apply --dry-run` → "Nothing to change."
 - On anton, `getent hosts douglas1` → `172.16.50.11 douglas1`.
 - `ssh douglas1 getent hosts anton` → `172.16.50.1 anton`.

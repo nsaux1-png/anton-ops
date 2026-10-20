@@ -33,6 +33,7 @@ The preconditions of SOP-001.
 - The `cluster` zone allows `ssh` and `squid`. The `public` zone is unchanged; squid isn't in it.
 
 ## Checks
+- **Automated:** `./cluster test --live -k test_admin_proxy`. It covers everything below, including a tagged request that has to show up in squid's log.
 - On anton: `sudo ss -ltn | grep 3128` → `172.16.50.1:3128` only.
 - On anton: `sudo firewall-cmd --zone=cluster --list-all` → `sources: 172.16.50.0/24`, `services: squid ssh`.
 - On douglas1, as an admin: `bash -lc 'curl -sS -o /dev/null -w "%{http_code}\n" https://rockylinux.org/'` → `200`.

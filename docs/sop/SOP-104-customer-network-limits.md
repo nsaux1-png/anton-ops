@@ -30,7 +30,9 @@ The preconditions of SOP-001.
 - the `customer` chain allowing `lo` and `172.16.50.0/24`, rejecting the proxy port, and rejecting everything else
 
 ## Checks
-These run on the compute node. `setpriv` runs a command as a made-up customer UID, so no account is needed.
+**Automated:** `./cluster test --live -k test_customer_network`. It covers the internet, the office network, every other local network on the node (such as the BMC link), the proxy, the cluster network, and admins not being limited.
+
+By hand, on the compute node: `setpriv` runs a command as a made-up customer UID, so no account is needed.
 ```
 C="sudo setpriv --reuid=10001 --regid=10001 --clear-groups"
 $C curl -sS -m 5 -o /dev/null -x http://anton:3128 https://rockylinux.org/   # → Connection refused

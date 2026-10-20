@@ -17,11 +17,12 @@ For any admin change to the machines. Don't change a machine by hand when a `./c
 | Command | What it does |
 |---|---|
 | `./cluster ping` | Checks that Ansible reaches every machine in `config/nodes.yml` and can become root there. Changes nothing. |
-| `./cluster apply` | Brings every machine in line with the repo, in four parts: **1. Preview** shows exactly what would change, without changing anything. **2. Ask:** "Make the N change(s) shown above? [y/N]". **3. Apply.** **4. Check:** a second preview must find nothing left to change, which prints "Done and settled." |
+| `./cluster apply` | Brings every machine in line with the repo. It first runs the code tests and stops if one fails. Then, in four parts: **1. Preview** shows exactly what would change, without changing anything. **2. Ask:** "Make the N change(s) shown above? [y/N]". **3. Apply.** **4. Check:** a second preview must find nothing left to change, which prints "Done and settled." |
 | `./cluster apply --dry-run` | Only the preview. |
 | `./cluster apply --yes` | Doesn't ask, for cron and agents. Without a terminal and without `--yes`, `apply` refuses. |
 | `./cluster apply --limit douglas1` | Only some machines. `--tags` runs only some parts. |
 | `./cluster apply --allow-dirty` | Runs with uncommitted changes. Only for discovery runs; the full diff goes in the run log. |
+| `./cluster test` | Runs every test: the code tests (`tests/code`, our own code) and the live tests (`tests/live`, real checks on the cluster's machines). `--code` or `--live` runs only one kind; `-k NAME` runs only matching tests. |
 | `./cluster runs` | Lists recent runs from `index.log`. |
 
 **Exit codes:** 0 done, 1 failed, 2 refused (bad input, uncommitted changes, or not confirmed). A refused run changes nothing.
@@ -40,7 +41,7 @@ For any admin change to the machines. Don't change a machine by hand when a `./c
 - `apply`: ends with "Done and settled." or "Nothing to change.", then `exit=0`.
 
 ## Checks
-- `/usr/bin/python3 -m unittest discover -s tests -v`: the command's own tests, all `ok`.
+- `./cluster test --code`: the command's own tests, all `ok`.
 - `./cluster runs` shows the run you just did.
 
 ## If something goes wrong

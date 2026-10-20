@@ -17,7 +17,7 @@ Then commit and push. Status as of 2026-10-19.
 | 1.2 | `/etc/hosts` on every machine from `config/nodes.yml` | 102 | | ✅ done 2026-10-19 |
 | 1.3 | **Admin web proxy on anton** (squid), on the cluster network only. Every request is logged. douglas1's `dnf` and admin shells use it. anton's firewall gets a separate zone for the cluster network, so cluster services never open on the upstream network. | 103 | | ✅ done 2026-10-19 |
 | 1.4 | **Network limits for customer jobs** on compute nodes: customer accounts (UID 2000 and up) can reach only the cluster network. That rules out the internet, the office network, the BMC and the admin proxy. Root and admin accounts aren't limited. | 104 | | ✅ done 2026-10-19 |
-| 1.5 | Time: anton serves time (chrony) to the cluster network; nodes sync from it | 105 | | |
+| 1.5 | Time: anton serves time (chrony) to the cluster network; nodes sync from it | 105 | | ✅ done 2026-10-19 |
 | 1.6 | **SSH lockdown, moved up by the review:** password login off, no root login, then check from outside whether anton's public IPv6 address is reachable | 106 | Confirm you log in with an SSH key, not a password; run the outside check from your phone's hotspot | |
 
 ## Phase 2: GPU node (douglas1)

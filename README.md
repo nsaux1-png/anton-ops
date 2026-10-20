@@ -34,6 +34,6 @@ Users log into anton and submit jobs. Every job is recorded in Slurm's accountin
 | `config/nodes.yml` | The machines; Ansible reads it as its inventory |
 | `ansible/` | Ansible config, `site.yml` and roles |
 | `scripts/bootstrap/` | One-time scripts for steps that come before Ansible (SOP-101) |
-| `tests/` | Tests for our own code: `/usr/bin/python3 -m unittest discover -s tests -v` |
+| `tests/` | `tests/code`: tests of our own code; `tests/live`: checks on the real cluster. Run with `./cluster test` |
 
 `./cluster --help` lists the commands.
