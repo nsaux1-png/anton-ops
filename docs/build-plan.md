@@ -62,11 +62,11 @@ Then commit and push. Status as of 2026-10-19.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 6.1 | Build Slurm RPMs from SchedMD source with NVIDIA (NVML) and Lua support | 151 | | |
-| 6.2 | munge, MariaDB, `slurmdbd`, `slurmctld` on anton | 152 | | |
-| 6.3 | `slurmd` on douglas1: GPUs by model, cgroups, reserved system cores and memory, 5 cores + 20 GB per GPU (`job_submit.lua`), `pam_slurm_adopt` | 153 | | |
-| 6.4 | Accounting: private data (in `slurm.conf` and `slurmdbd.conf`), GPU use per job, job scripts kept 60 days by Slurm's own purge | 154 | | |
-| 6.5 | Tests: CPU job, 1 GPU, several GPUs, limits, memory kill, a job can't reach the internet, signals and grace | 155 | | |
+| 6.1 | Build Slurm RPMs from SchedMD source with NVIDIA (NVML) and Lua support | 151 | | ✅ done 2026-10-20 (Slurm 26.05.5) |
+| 6.2 | munge, MariaDB, `slurmdbd`, `slurmctld` on anton | 152 | | ✅ done on anton 2026-10-20 |
+| 6.3 | `slurmd` on douglas1: GPUs by model, cgroups, reserved system cores and memory, 5 cores + 20 GB per GPU (`job_submit.lua`), `pam_slurm_adopt` | 153 | | ◐ job_submit.lua done 2026-10-20; slurmd on douglas1 waits for douglas1 |
+| 6.4 | Accounting: private data (in `slurm.conf` and `slurmdbd.conf`), GPU use per job, job scripts kept 60 days by Slurm's own purge | 154 | | ◐ private data, GPU use recording, 60-day job scripts configured; checked end to end once a node runs jobs |
+| 6.5 | Tests: CPU job, 1 GPU, several GPUs, limits, memory kill, a job can't reach the internet, signals and grace | 155 | | ◐ 22 controller tests pass; job runs on GPUs wait for douglas1 |
 
 ## Phase 7: Billing and credits
 **Tests written in this phase:** code tests for the ledger arithmetic, credit batches and expiry, price overrides and history, storage peak, hourly charging, and re-runs never double-charging. End to end on the test accounts: top up, run jobs, charges correct to the cent, run out mid-job → grace → stop, expiry, statement totals equal Slurm's totals.
