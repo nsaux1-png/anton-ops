@@ -13,7 +13,7 @@ import uuid
 
 import yaml
 
-from helpers import REPO, head, hosts, run
+from helpers import REPO, head, hosts, run, ssh_login
 
 HEAD = head()
 with open(os.path.join(REPO, "config", "customers.yml")) as f:
@@ -32,21 +32,6 @@ def limit_gib(code):
 def as_user(user, command, host=None):
     """Run a command as a user on a machine (no login), through sudo."""
     return run(host or HEAD, f"sudo -u {user} bash -c {shlex.quote(command)}")
-
-
-def ssh_login(user, command, key_user=None, key_file=None, host="localhost"):
-    """Log in over SSH as user with their test key (or another key) and run a command."""
-    with tempfile.TemporaryDirectory() as d:
-        key = key_file
-        if key is None:
-            key = os.path.join(d, "key")
-            with open(key, "w") as f:
-                f.write(run(HEAD, f"sudo cat /etc/cluster/test-keys/{key_user or user}").stdout)
-            os.chmod(key, 0o600)
-        return subprocess.run(
-            ["ssh", "-i", key, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=no",
-             "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10",
-             f"{user}@{host}", command], capture_output=True, text=True, timeout=120)
 
 
 def group_used_kib(gid):

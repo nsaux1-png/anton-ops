@@ -9,7 +9,7 @@ import shlex
 import unittest
 import uuid
 
-from helpers import head, run
+from helpers import head, run, ssh_login
 
 HEAD = head()
 A, A2, B = "zz01", "zz02", "zz03"           # zz01 manages c0001; zz02 is a plain user of c0001; zz03 is c0002
@@ -84,34 +84,39 @@ class CreditsAndLimits(unittest.TestCase):
 
 class WhatCustomersSee(unittest.TestCase):
     def test_credits_shows_their_own_customer(self):
-        out = as_user(A2, "credits --json")
+        out = as_user(A2, "/usr/local/bin/credits --json")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(json.loads(out.stdout)["customer"], "c0001")
-        out = as_user(B, "credits --json")
+        out = as_user(B, "/usr/local/bin/credits --json")
         self.assertEqual(json.loads(out.stdout)["customer"], "c0002")
 
     def test_only_managers_get_the_statement(self):
-        self.assertIn("Statement for c0001", as_user(A, "credits").stdout)
-        self.assertNotIn("Statement", as_user(A2, "credits").stdout)
+        self.assertIn("Statement for c0001", as_user(A, "/usr/local/bin/credits").stdout)
+        self.assertNotIn("Statement", as_user(A2, "/usr/local/bin/credits").stdout)
 
     def test_prices_and_history(self):
-        out = json.loads(as_user(A2, "prices --json").stdout)
+        out = json.loads(as_user(A2, "/usr/local/bin/prices --json").stdout)
         self.assertTrue(out)
         self.assertIn("rtx5070ti", out[-1]["prices"]["gpu_hour"])
 
     def test_storage(self):
-        out = json.loads(as_user(B, "mystorage --json").stdout)
+        out = json.loads(as_user(B, "/usr/local/bin/mystorage --json").stdout)
         self.assertEqual(out["customer"], "c0002")
         self.assertEqual(out["limit_gib"], 1)
 
     def test_usage(self):
-        r = as_user(A2, "myusage --json")
+        r = as_user(A2, "/usr/local/bin/myusage --json")
         self.assertEqual(r.returncode, 0, r.stderr)
         for job in json.loads(r.stdout):
             self.assertEqual(job["username"], A2, "a plain user sees only their own jobs")
 
+    def test_the_commands_are_there_after_a_normal_login(self):
+        r = ssh_login(A2, "credits --json")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout)["customer"], "c0001")
+
     def test_someone_who_is_not_a_customer_is_refused(self):
-        r = run(HEAD, "credits")
+        r = run(HEAD, "/usr/local/bin/credits")
         self.assertNotEqual(r.returncode, 0)
 
 

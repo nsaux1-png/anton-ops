@@ -11,6 +11,7 @@ import json
 import os
 import shlex
 import subprocess
+import tempfile
 import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -76,3 +77,18 @@ def wait_until(check, seconds=90, every=3):
         if result or time.time() > deadline:
             return result
         time.sleep(every)
+
+
+def ssh_login(user, command, key_user=None, key_file=None, host="localhost"):
+    """Log in over SSH as user with their test key (or another key) and run a command."""
+    with tempfile.TemporaryDirectory() as d:
+        key = key_file
+        if key is None:
+            key = os.path.join(d, "key")
+            with open(key, "w") as f:
+                f.write(run(head(), f"sudo cat /etc/cluster/test-keys/{key_user or user}").stdout)
+            os.chmod(key, 0o600)
+        return subprocess.run(
+            ["ssh", "-i", key, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=no",
+             "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10",
+             f"{user}@{host}", command], capture_output=True, text=True, timeout=120)
