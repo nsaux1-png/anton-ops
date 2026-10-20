@@ -51,8 +51,10 @@ grep -E "checking (for nvml|for lua|whether to build pmix|for hwloc)|NVML|nvml.h
 ls "$TOP/RPMS/x86_64/"
 
 step "4. Check the GPU, Lua and PMIx support made it in"
+# The file list goes to a file first: grep -q stops reading early, which would fail rpm under pipefail.
+rpm -qlp "$TOP"/RPMS/x86_64/slurm-*.rpm > "$TOP/files.txt" 2>/dev/null
 for plugin in gpu_nvml.so job_submit_lua.so mpi_pmix.so cgroup_v2.so; do
-  if rpm -qlp "$TOP"/RPMS/x86_64/slurm-*.rpm 2>/dev/null | grep -q "/$plugin\$"; then
+  if grep -q "/$plugin\$" "$TOP/files.txt"; then
     echo "   OK: $plugin"
   else
     echo "   MISSING: $plugin"
