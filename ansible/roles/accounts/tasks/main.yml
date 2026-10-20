@@ -22,7 +22,7 @@
     create_home: false            # home folders are made on the storage (role customer_storage)
     shell: "{{ '/bin/bash' if item.status == 'active' else '/sbin/nologin' }}"
     password: "!!"
-    expires: "{{ -1 if item.status == 'active' else 1 }}"   # 1 = expired in 1970: no login at all
+    expires: "{{ -1 if item.status == 'active' else 86400 }}"   # expired on 2 Jan 1970: no login at all (day 0 is ambiguous)
   loop: "{{ accounts.users }}"
   loop_control:
     label: "{{ item.name }} ({{ item.customer }}, {{ item.status }})"

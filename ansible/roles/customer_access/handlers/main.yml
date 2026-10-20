@@ -9,3 +9,8 @@
     name: sshd
     state: restarted
     daemon_reload: true
+
+# New user service managers pick it up; running ones keep the old setting until they stop.
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

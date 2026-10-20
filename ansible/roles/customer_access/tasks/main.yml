@@ -63,3 +63,22 @@
     group: root
     mode: "0644"
   notify: Restart sshd
+
+# Each user's own service manager (systemd --user, used by systemd-run --user) is started by systemd,
+# not by sshd, so it needs the same setting or it's a way around it.
+- name: Folder for user service managers' systemd settings
+  ansible.builtin.file:
+    path: /etc/systemd/system/user@.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hide other users' processes from user service managers too
+  ansible.builtin.copy:
+    src: hide-processes.conf
+    dest: /etc/systemd/system/user@.service.d/hide-processes.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd

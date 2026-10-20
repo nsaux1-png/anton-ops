@@ -109,7 +109,7 @@ class Folders(unittest.TestCase):
         name = f"/cluster/projects/{CUST_A}/share-test-{uuid.uuid4().hex}"
         try:
             self.assertEqual(as_user(A, f"echo hi > {name}").returncode, 0)
-            self.assertEqual(run(HEAD, f"stat -c %G {name}").stdout.strip(), CUST_A)
+            self.assertEqual(run(HEAD, f"sudo stat -c %G {name}").stdout.strip(), CUST_A)
             self.assertEqual(as_user(A2, f"cat {name}").stdout.strip(), "hi")
             self.assertNotEqual(as_user(B, f"cat {name}").returncode, 0)
         finally:
@@ -165,7 +165,7 @@ class StorageLimits(unittest.TestCase):
             as_user(A2, f"touch {path}")
             r = as_user(A2, f"chgrp {CUST_B} {path}")
             self.assertNotEqual(r.returncode, 0)
-            self.assertEqual(run(HEAD, f"stat -c %G {path}").stdout.strip(), CUST_A)
+            self.assertEqual(run(HEAD, f"sudo stat -c %G {path}").stdout.strip(), CUST_A)
         finally:
             run(HEAD, f"sudo rm -f {path}")
 
@@ -208,7 +208,7 @@ class Logins(unittest.TestCase):
         self.assertIn("not allowed to run sudo", out)
 
     def test_customers_see_only_their_own_processes(self):
-        r = ssh_login(A, "ps -eo user= | sort -u; test -e /proc/1 && echo SEES_PID1")
+        r = ssh_login(A, "ps -eo user= | sort -u; test -e /proc/1 && echo SEES_PID1; true")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split(), [A])
 
