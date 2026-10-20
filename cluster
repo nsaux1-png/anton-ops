@@ -129,8 +129,38 @@ def cmd_ping(args, log):
     return EXIT_OK if code == 0 else EXIT_FAILED
 
 
+def test_env():
+    env = dict(os.environ)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
+def run_tests(log, kinds, pattern=None):
+    """Run tests/<kind> for each kind ("code", "live") with unittest. True if everything passed."""
+    passed = True
+    for kind in kinds:
+        folder = os.path.join(REPO, "tests", kind)
+        cmd = ["/usr/bin/python3", "-m", "unittest", "discover", "-s", folder, "-t", folder, "-v"]
+        if pattern:
+            cmd += ["-k", pattern]
+        log.say(f"-- {kind} tests:")
+        code, _ = log.run(cmd, env=test_env(), cwd=REPO)
+        passed = passed and code == 0
+    return passed
+
+
+def cmd_test(args, log):
+    """Code tests (our own code) and live tests (the real cluster)."""
+    kinds = [k for k in ("code", "live") if getattr(args, k)] or ["code", "live"]
+    if run_tests(log, kinds, args.k):
+        log.say("All tests passed.")
+        return EXIT_OK
+    log.say("Some tests FAILED; see above.")
+    return EXIT_FAILED
+
+
 def cmd_apply(args, log):
-    """Preview, confirm, apply, then check that nothing is left to change."""
+    """Code tests, preview, confirm, apply, then check that nothing is left to change."""
     if log.uncommitted and not args.allow_dirty:
         raise Refused("The repo has uncommitted changes. Commit them first, so this run matches a commit "
                       "(or pass --allow-dirty for a discovery run; the diff goes in the log).")
@@ -140,6 +170,11 @@ def cmd_apply(args, log):
     if args.tags:
         playbook += ["--tags", args.tags]
     env = ansible_env()
+
+    # Skipped only by this command's own tests, which run apply against stand-ins.
+    if not os.environ.get("CLUSTER_SKIP_CODE_TESTS") and not run_tests(log, ["code"]):
+        log.say("Code tests failed; nothing was changed.")
+        return EXIT_FAILED
 
     log.say("-- Preview (Ansible check mode; nothing is changed):")
     code, out = log.run(playbook + ["--check", "--diff"], env=env, cwd=ANSIBLE_DIR)
@@ -200,6 +235,12 @@ def build_parser():
     p.add_argument("--allow-dirty", action="store_true",
                    help="run with uncommitted changes (discovery runs only; the diff is logged)")
     p.set_defaults(func=cmd_apply)
+
+    p = sub.add_parser("test", help="run the tests: code tests and live tests on the cluster")
+    p.add_argument("--code", action="store_true", help="only the code tests")
+    p.add_argument("--live", action="store_true", help="only the live tests")
+    p.add_argument("-k", metavar="PATTERN", help="only tests whose name contains PATTERN")
+    p.set_defaults(func=cmd_test)
 
     p = sub.add_parser("runs", help="list recent runs from the run log")
     p.add_argument("-n", type=int, default=20, help="how many (default 20)")

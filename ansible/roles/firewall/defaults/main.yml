@@ -2,3 +2,4 @@
 cluster_zone_services:
   - ssh
   - squid
+  - ntp

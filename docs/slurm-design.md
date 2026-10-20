@@ -11,6 +11,7 @@
 6. Decided: no internet from compute nodes. Found: douglas1's memory slots are full, so more RAM means new sticks (COP-43).
 7. Corrected: no internet for **customers' jobs**; admins reach the internet from compute nodes through a logged proxy on anton. System packages come from a mirror before the second node. Step-by-step build plan in [`build-plan.md`](build-plan.md).
 8. Independent plan review applied ([`reviews/2026-10-19-plan-review.md`](reviews/2026-10-19-plan-review.md)). Fixed: the credit limit formula, storage enforced by group quotas, Slurm's own job-script purge, no GPU energy accounting, `ProtectProc` instead of `hidepid`, integer billing units, one partition per GPU model, running jobs charged hourly, CUDA 12.8+. New questions Q8–Q9.
+9. Tests are written with each build step and run on the cluster, not GitHub. Customer folders live under `/cluster`, so admin home folders stay local.
 
 ## Requirements (user, 2026-10-19)
 1. Track usage per user.
@@ -98,7 +99,7 @@ customers:
 
 ## 4. Compute and storage: tracking, limits, billing
 - **Compute** comes from Slurm accounting, priced per GPU-hour (by GPU model) and per CPU-hour (section 9, plan D29).
-- **Where:** all shared storage is on `/raiddrive` on anton (the 3.7 TB mirrored pair), shared to the nodes over NFS. That covers home folders, customer project folders and shared software. Scratch is local to each node. If storage moves to a bigger server later (plan D22), the paths customers see stay the same.
+- **Where:** all shared storage is on `/raiddrive` on anton (the 3.7 TB mirrored pair), shared to the nodes over NFS. That covers home folders, customer project folders and shared software. Scratch is local to each node. If storage moves to a bigger server later (plan D22), the paths customers see stay the same. Customers see it as `/cluster/home/<user>`, `/cluster/projects/<customer>` and `/cluster/software` on every machine. Admin home folders stay in `/home`, local to each machine.
 - **Storage limits: 150 GB per customer by default** (decided 2026-10-19), overridable per customer. Writing past the limit fails. An email warning goes out at 90%.
   - The limit is enforced and billed as an XFS **group quota** on the customer's group. Each user's only group is their customer's group, and project folders are setgid, so every file they create counts against it. A user can't move a file to a group they're not in.
   - A project quota on its own isn't safe: a file's owner can change the file's project ID and escape both the limit and the bill. So the project quota on each customer's folders is kept only so that `df` shows their limit.
@@ -261,8 +262,10 @@ All of it is the customer's own data only. Each command takes `--json`.
 - Test accounts never appear on statements or invoices. Their credits are test grants.
 - They can log in only from anton, not from the internet. Their keys are root-only on anton.
 
+Tests are written in the same build step as the thing they test ([`build-plan.md`](build-plan.md)), and they run on the cluster itself.
+
 **`./cluster test` runs the suite, in three layers:**
-1. **Code tests** take seconds and don't need the cluster. They cover the ledger, credit batches and expiry, price overrides, storage peak charging, what `apply` would change, and the username generator. GitHub Actions runs them on every push, and a failure marks the commit red on GitHub.
+1. **Code tests** take seconds and don't need the cluster. They cover the ledger, credit batches and expiry, price overrides, storage peak charging, what `apply` would change, and the username generator. They run on anton, as part of every `./cluster test`. `./cluster apply` runs them first and stops if one fails.
 2. **Live tests** run on the real cluster as the test users:
    - **isolation:** can't see the other test customer's jobs, files or processes; no sudo; can't log into a node without a running job; `df` shows only their own limit
    - **limits:** an oversized job is rejected; a job over its memory is killed; a job sees only its own GPUs; a CPU-only job in `gpu` is rejected

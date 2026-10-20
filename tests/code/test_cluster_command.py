@@ -1,6 +1,6 @@
 """Tests for the ./cluster command itself, with stand-ins for ansible and ansible-playbook.
 
-Run:  /usr/bin/python3 -m unittest discover -s tests -v
+Run:  ./cluster test --code
 """
 
 import os
@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 CLUSTER = os.path.join(REPO, "cluster")
 
 # Stand-in for ansible-playbook: a check run reports 1 change until a real run has happened.
@@ -46,7 +46,7 @@ class ClusterCommandTest(unittest.TestCase):
             os.chmod(path, 0o755)
         self.calls = os.path.join(d, "calls")
         self.state = os.path.join(d, "applied")
-        self.env = dict(os.environ, CLUSTER_LOG_DIR=self.logs, FAKE_CALLS=self.calls,
+        self.env = dict(os.environ, CLUSTER_LOG_DIR=self.logs, CLUSTER_SKIP_CODE_TESTS="1", FAKE_CALLS=self.calls,
                         FAKE_STATE=self.state, PATH=bin_dir + os.pathsep + os.environ["PATH"])
 
     def cluster(self, *args, **env):

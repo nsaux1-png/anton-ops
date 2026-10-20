@@ -1,0 +1,9 @@
+# Managed by Ansible (ansible/roles/time), SOP-105. Local edits are overwritten.
+# Compute nodes have no internet; they take their time from {{ time_server }} only.
+server {{ time_server }} iburst
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+keyfile /etc/chrony.keys
+leapsectz right/UTC
+logdir /var/log/chrony

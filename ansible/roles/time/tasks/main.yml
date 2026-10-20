@@ -1,0 +1,22 @@
+# Time (SOP-105). The head node follows internet time servers and serves time to the cluster network.
+# Compute nodes have no internet, so they follow the head node only.
+- name: Install chrony
+  ansible.builtin.dnf:
+    name: chrony
+    state: present
+
+- name: chrony settings
+  ansible.builtin.template:
+    src: "{{ 'chrony-head.conf.j2' if 'head' in group_names else 'chrony-node.conf.j2' }}"
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Restart chronyd
+
+- name: Run chronyd now and at boot
+  ansible.builtin.systemd:
+    name: chronyd
+    enabled: true
+    state: started

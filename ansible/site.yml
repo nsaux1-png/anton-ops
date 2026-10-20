@@ -10,6 +10,7 @@
   become: true
   roles:
     - firewall
+    - time
     - admin_proxy
 
 - name: Compute nodes
@@ -17,3 +18,4 @@
   become: true
   roles:
     - egress
+    - time

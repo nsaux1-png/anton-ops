@@ -1,0 +1,16 @@
+# Managed by Ansible (ansible/roles/time), SOP-105. Local edits are overwritten.
+# {{ inventory_hostname }} follows the office router and public time servers, and serves time to the cluster network.
+server _gateway iburst
+pool 2.rocky.pool.ntp.org iburst
+sourcedir /run/chrony-dhcp
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+keyfile /etc/chrony.keys
+ntsdumpdir /var/lib/chrony
+leapsectz right/UTC
+logdir /var/log/chrony
+
+allow {{ cluster_network }}
+# Keep serving the cluster from the local clock if every upstream source is lost.
+local stratum 10
