@@ -19,6 +19,7 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-105](SOP-105-time.md) | Time sync | proved 2026-10-19 |
 | [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
 | SOP-111 | NVIDIA driver | ⚠️ in progress: douglas1 stuck in boot after the driver install |
+| [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20 |
 | [SOP-201](SOP-201-os-updates.md) | OS updates on compute nodes (`./cluster upgrade`) | proved 2026-10-19 on douglas1 |
 
 ## Template
