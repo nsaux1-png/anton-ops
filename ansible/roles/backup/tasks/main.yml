@@ -1,0 +1,74 @@
+# Backups on the head node (SOP-181): nightly database dumps and cluster files, hourly copies of the
+# database's binary logs, all on /raiddrive (a different disk from the databases). Root only.
+- name: Backup folder (root only)
+  ansible.builtin.file:
+    path: /raiddrive/backups
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: The backup tool
+  ansible.builtin.copy:
+    src: cluster-backup
+    dest: /usr/local/sbin/cluster-backup
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Backup services and timers
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - name: cluster-backup-nightly.service
+      content: |
+        # Managed by Ansible (ansible/roles/backup), SOP-181.
+        [Unit]
+        Description=Nightly backup of the databases and cluster files (SOP-181)
+        Requires=mariadb.service
+        After=mariadb.service
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/cluster-backup run
+    - name: cluster-backup-nightly.timer
+      content: |
+        # Managed by Ansible (ansible/roles/backup), SOP-181.
+        [Timer]
+        OnCalendar=*-*-* 01:30:00
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+    - name: cluster-backup-binlogs.service
+      content: |
+        # Managed by Ansible (ansible/roles/backup), SOP-181.
+        [Unit]
+        Description=Hourly copy of the database's binary logs (SOP-181)
+        Requires=mariadb.service
+        After=mariadb.service
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/cluster-backup binlogs
+    - name: cluster-backup-binlogs.timer
+      content: |
+        # Managed by Ansible (ansible/roles/backup), SOP-181.
+        [Timer]
+        OnCalendar=*-*-* *:15:00
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  register: backup_units
+
+- name: Run them from now on
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: [cluster-backup-nightly.timer, cluster-backup-binlogs.timer]
+  when: not (ansible_check_mode and backup_units is changed)

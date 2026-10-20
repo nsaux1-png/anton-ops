@@ -231,6 +231,12 @@ def cmd_credits(args, log):
     return {0: EXIT_OK, 2: EXIT_REFUSED}.get(code, EXIT_FAILED)
 
 
+def cmd_backup(args, log):
+    """Backups on anton (SOP-181) and restore checks (SOP-301)."""
+    code, _ = log.run(["sudo", "/usr/local/sbin/cluster-backup", args.action] + ([args.day] if args.day else []))
+    return EXIT_OK if code == 0 else EXIT_FAILED
+
+
 def cmd_build(args, log):
     """Build software we make ourselves; versions come from config/versions.yml."""
     import yaml
@@ -484,6 +490,11 @@ def build_parser():
     p.add_argument("action", choices=["topup", "grant", "adjust", "refund", "balance", "statement", "hourly"])
     p.add_argument("rest", nargs=argparse.REMAINDER)
     p.set_defaults(func=cmd_credits)
+
+    p = sub.add_parser("backup", help="backups: run (now), verify (restore into scratch databases and check), list")
+    p.add_argument("action", choices=["run", "verify", "list"])
+    p.add_argument("day", nargs="?", help="for verify: which day's backup (default: the newest)")
+    p.set_defaults(func=cmd_backup)
 
     p = sub.add_parser("build", help="build software we make ourselves (slurm), from config/versions.yml")
     p.add_argument("what", choices=["slurm"])

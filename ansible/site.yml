@@ -33,6 +33,7 @@
     - slurm_controller
     - slurm_accounts
     - billing
+    - backup
 
 - name: Compute nodes
   hosts: compute

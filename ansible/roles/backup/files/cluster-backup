@@ -1,0 +1,226 @@
+#!/usr/bin/python3 -I
+"""cluster-backup: backups on anton (SOP-181), and checking that they restore (SOP-301).
+Installed by Ansible (ansible/roles/backup). Runs as root.
+
+  cluster-backup run         nightly: both databases and anton's cluster files, into
+                             /raiddrive/backups/daily/<date>/, with a manifest; keeps DAILY_DAYS days
+  cluster-backup binlogs     hourly: copies the database's binary logs to /raiddrive/backups/binlog/,
+                             so a restore can reach the minute (dump + logs since); keeps BINLOG_DAYS days
+  cluster-backup verify [D]  restores the newest backup (or date D) into scratch databases and checks it:
+                             the ledger must match the live ledger exactly up to the backup's last entry
+  cluster-backup list
+
+The backups are on /raiddrive (the HDD mirror), a different disk from the databases (anton's NVMe).
+An off-site copy is still to come (plan D39).
+"""
+
+import datetime
+import gzip
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+
+ROOT = "/raiddrive/backups"
+DAILY = os.path.join(ROOT, "daily")
+BINLOG = os.path.join(ROOT, "binlog")
+DAILY_DAYS = 30
+BINLOG_DAYS = 14
+LEDGER = "cluster_ledger"
+SLURM = "slurm_acct_db"
+# Job scripts are kept 60 days (design Q5); backups keep these tables' structure but not their rows.
+SLURM_NO_ROWS = ["main_job_script_table", "main_job_env_table"]
+FILES = ["/etc/cluster", "/etc/munge/munge.key", "/etc/slurm", "/var/spool/slurmctld", "/etc/my.cnf.d/slurm.cnf"]
+
+
+def sh(*args, **kw):
+    return subprocess.run(args, check=True, capture_output=True, text=True, **kw).stdout
+
+
+def sql(query, db=None):
+    args = ["mysql", "-N", "-B", "-e", query] + ([db] if db else [])
+    return sh(*args)
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def dump(db, path, options):
+    with gzip.open(path, "wt") as out:
+        p = subprocess.run(["mysqldump", "--single-transaction", "--routines", "--events"] + options + [db],
+                           stdout=out, stderr=subprocess.PIPE, text=True)
+    if p.returncode != 0:
+        raise RuntimeError(f"mysqldump {db} failed: {p.stderr}")
+
+
+def ledger_summary(db):
+    """The append-only ledger's fingerprint: the last entry and the sums up to it."""
+    row = sql("SELECT COALESCE(MAX(id),0), COUNT(*), COALESCE(SUM(amount),0) FROM entries", db).split()
+    return {"max_id": int(row[0]), "count": int(row[1]), "sum": int(row[2])}
+
+
+def cmd_run():
+    day = datetime.date.today().isoformat()
+    target = os.path.join(DAILY, day)
+    os.makedirs(target, mode=0o700, exist_ok=True)
+    os.chmod(ROOT, 0o700)
+    # --flush-logs starts a new binary log, so "this dump + every log after it" is the whole history.
+    dump(LEDGER, os.path.join(target, f"{LEDGER}.sql.gz"), ["--flush-logs", "--master-data=2"])
+    dump(SLURM, os.path.join(target, f"{SLURM}.schema.sql.gz"), ["--no-data"])
+    dump(SLURM, os.path.join(target, f"{SLURM}.data.sql.gz"),
+         ["--no-create-info"] + [f"--ignore-table={SLURM}.{t}" for t in SLURM_NO_ROWS])
+    with tarfile.open(os.path.join(target, "files.tar.gz"), "w:gz") as tar:
+        for path in FILES:
+            if os.path.exists(path):
+                tar.add(path)
+    manifest = {"made_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                "ledger": ledger_summary(LEDGER),
+                "files": {name: {"bytes": os.path.getsize(os.path.join(target, name)),
+                                 "sha256": sha256(os.path.join(target, name))}
+                          for name in sorted(os.listdir(target)) if name != "manifest.json"}}
+    with open(os.path.join(target, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+    for name in os.listdir(target):
+        os.chmod(os.path.join(target, name), 0o600)
+    print(f"backup {day}: ledger up to entry {manifest['ledger']['max_id']}, "
+          f"{sum(v['bytes'] for v in manifest['files'].values()) // 1024} KiB")
+    prune(DAILY, DAILY_DAYS)
+    cmd_binlogs()
+
+
+def prune(folder, days):
+    cutoff = datetime.date.today() - datetime.timedelta(days=days)
+    for name in sorted(os.listdir(folder)):
+        try:
+            if datetime.date.fromisoformat(name[:10]) < cutoff:
+                path = os.path.join(folder, name)
+                shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+                print(f"removed old backup {name}")
+        except ValueError:
+            continue
+
+
+def cmd_binlogs():
+    os.makedirs(BINLOG, mode=0o700, exist_ok=True)
+    datadir = sql("SELECT @@datadir").strip()
+    logs = [line.split("\t")[0] for line in sql("SHOW BINARY LOGS").splitlines()]
+    current = logs[-1] if logs else None
+    copied = 0
+    for name in logs:
+        src = os.path.join(datadir, name)
+        day_prefix = datetime.datetime.fromtimestamp(os.path.getmtime(src)).date().isoformat()
+        dst = os.path.join(BINLOG, f"{day_prefix}_{name}")
+        if name == current or not os.path.exists(dst) or os.path.getsize(dst) != os.path.getsize(src):
+            shutil.copy2(src, dst)
+            os.chmod(dst, 0o600)
+            copied += 1
+    prune(BINLOG, BINLOG_DAYS)
+    print(f"binary logs: {copied} copied")
+
+
+def newest():
+    days = sorted(d for d in os.listdir(DAILY) if os.path.exists(os.path.join(DAILY, d, "manifest.json")))
+    if not days:
+        raise RuntimeError("no backups yet")
+    return days[-1]
+
+
+def restore(db, files):
+    sql(f"DROP DATABASE IF EXISTS {db}; CREATE DATABASE {db}")
+    for path in files:
+        with gzip.open(path, "rt") as f:
+            p = subprocess.run(["mysql", db], stdin=f, stderr=subprocess.PIPE, text=True)
+        if p.returncode != 0:
+            raise RuntimeError(f"restoring {path} failed: {p.stderr}")
+
+
+def cmd_verify(day=None):
+    day = day or newest()
+    folder = os.path.join(DAILY, day)
+    with open(os.path.join(folder, "manifest.json")) as f:
+        manifest = json.load(f)
+    problems = []
+    for name, info in manifest["files"].items():
+        if sha256(os.path.join(folder, name)) != info["sha256"]:
+            problems.append(f"{name}: checksum doesn't match the manifest")
+    try:
+        restore("restore_check_ledger", [os.path.join(folder, f"{LEDGER}.sql.gz")])
+        restore("restore_check_slurm", [os.path.join(folder, f"{SLURM}.schema.sql.gz"),
+                                        os.path.join(folder, f"{SLURM}.data.sql.gz")])
+        restored = ledger_summary("restore_check_ledger")
+        if restored != manifest["ledger"]:
+            problems.append(f"ledger: restored {restored}, manifest says {manifest['ledger']}")
+        # The ledger only ever appends: up to the backup's last entry, the live ledger must be identical.
+        live = sql(f"SELECT COUNT(*), COALESCE(SUM(amount),0), COALESCE(SUM(CRC32(CONCAT_WS('|',id,customer,kind,"
+                   f"amount,ref,created_at))),0) FROM entries WHERE id <= {restored['max_id']}", LEDGER).split()
+        back = sql("SELECT COUNT(*), COALESCE(SUM(amount),0), COALESCE(SUM(CRC32(CONCAT_WS('|',id,customer,kind,"
+                   "amount,ref,created_at))),0) FROM entries", "restore_check_ledger").split()
+        if live != back:
+            problems.append(f"ledger entries differ from the live ledger: live {live}, restored {back}")
+        tables = set(sql("SHOW TABLES", SLURM).split())
+        restored_tables = set(sql("SHOW TABLES", "restore_check_slurm").split())
+        if tables != restored_tables:
+            problems.append(f"slurm tables differ: missing {sorted(tables - restored_tables)}")
+        for t in SLURM_NO_ROWS:
+            if t in restored_tables and sql(f"SELECT COUNT(*) FROM {t}", "restore_check_slurm").strip() != "0":
+                problems.append(f"{t} has rows in the backup; job scripts must not outlive 60 days")
+        jobs_back = int(sql("SELECT COUNT(*) FROM main_job_table", "restore_check_slurm").strip())
+        jobs_live = int(sql("SELECT COUNT(*) FROM main_job_table", SLURM).strip())
+        if jobs_back > jobs_live:
+            problems.append(f"backup has more jobs ({jobs_back}) than the live database ({jobs_live})")
+        with tarfile.open(os.path.join(folder, "files.tar.gz")) as tar:
+            names = tar.getnames()
+        for needed in ("etc/cluster/secrets", "etc/munge/munge.key", "etc/slurm/slurm.conf"):
+            if not any(n == needed or n.startswith(needed + "/") for n in names):
+                problems.append(f"files.tar.gz lacks {needed}")
+    finally:
+        sql("DROP DATABASE IF EXISTS restore_check_ledger; DROP DATABASE IF EXISTS restore_check_slurm")
+    if problems:
+        print(f"backup {day}: PROBLEMS")
+        for p in problems:
+            print(f"  - {p}")
+        return 1
+    print(f"backup {day}: restores cleanly; the ledger matches the live ledger exactly up to entry "
+          f"{manifest['ledger']['max_id']} ({manifest['ledger']['count']} entries); Slurm's {jobs_back} job records "
+          f"restored; job scripts left out as they should be")
+    return 0
+
+
+def cmd_list():
+    for day in sorted(os.listdir(DAILY)) if os.path.isdir(DAILY) else []:
+        size = sum(os.path.getsize(os.path.join(DAILY, day, n)) for n in os.listdir(os.path.join(DAILY, day)))
+        print(f"{day}  {size // 1024:>8} KiB")
+    logs = os.listdir(BINLOG) if os.path.isdir(BINLOG) else []
+    print(f"binary logs kept: {len(logs)}")
+    return 0
+
+
+def main(argv):
+    if not argv or argv[0] not in ("run", "binlogs", "verify", "list"):
+        print(__doc__)
+        return 2
+    try:
+        if argv[0] == "run":
+            cmd_run()
+            return 0
+        if argv[0] == "binlogs":
+            cmd_binlogs()
+            return 0
+        if argv[0] == "verify":
+            return cmd_verify(argv[1] if len(argv) > 1 else None)
+        return cmd_list()
+    except (RuntimeError, subprocess.CalledProcessError) as e:
+        print(f"cluster-backup: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
