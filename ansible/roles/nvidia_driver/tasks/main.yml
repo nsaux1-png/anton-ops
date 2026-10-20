@@ -40,7 +40,19 @@
     owner: root
     group: root
     mode: "0644"
-  notify: Rebuild the initramfs
+
+# nouveau loads from the initramfs, so the blacklist must be inside the boot kernel's initramfs too.
+# Checked directly rather than with a handler, so a run that fails halfway still gets it next time.
+- name: Is the blacklist in the boot kernel's initramfs
+  ansible.builtin.shell: lsinitrd "/boot/initramfs-$(grubby --default-kernel | sed 's|^/boot/vmlinuz-||').img" | grep -c 'etc/modprobe.d/blacklist-nouveau.conf'
+  register: initramfs_blacklist
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Rebuild the initramfs with the blacklist
+  ansible.builtin.command: dracut --regenerate-all --force
+  when: initramfs_blacklist.stdout | trim == '0'
 
 - name: Which NVIDIA driver stream is enabled
   ansible.builtin.command: dnf -q module list --enabled nvidia-driver
@@ -78,13 +90,6 @@
     mode: "0644"
   when: nvidia_installed.stdout_lines | length > 0
 
-- name: Persistence mode, so GPUs stay ready between jobs
-  ansible.builtin.systemd:
-    name: nvidia-persistenced
-    enabled: true
-    state: started
-  when: not (ansible_check_mode and nvidia_installed.stdout_lines | length == 0)
-
 - name: CUDA compiler for the live tests' GPU check
   ansible.builtin.dnf:
     name:
@@ -99,11 +104,16 @@
   changed_when: false
   check_mode: false
 
-- name: Rebuild the initramfs now if it's due, before rebooting
-  ansible.builtin.meta: flush_handlers
-
 - name: Reboot to load the driver
   ansible.builtin.reboot:
     reboot_timeout: 1200
     msg: "Rebooting to load the NVIDIA driver (SOP-111)"
   when: nvidia_loaded.stdout | trim != 'nvidia' and not ansible_check_mode
+
+# Only after the reboot: the daemon needs the NVIDIA driver loaded.
+- name: Persistence mode, so GPUs stay ready between jobs
+  ansible.builtin.systemd:
+    name: nvidia-persistenced
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and nvidia_installed.stdout_lines | length == 0)

@@ -1,3 +1,0 @@
-# nouveau is loaded from the initramfs, so the blacklist only takes effect once it's rebuilt.
-- name: Rebuild the initramfs
-  ansible.builtin.command: dracut --regenerate-all --force
