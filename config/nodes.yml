@@ -10,6 +10,7 @@ all:
     customer_uid_min: 2000          # accounts from this UID up are customers; admins are 1000-1999 (plan section 6)
     time_server: anton              # compute nodes take their time from here (SOP-105)
     upstream_network: 192.168.4.0/22   # anton's upstream (office) network, shared with other machines
+    storage_server: anton           # exports /raiddrive/cluster, mounted as /cluster everywhere (SOP-130)
   children:
     head:
       hosts:
@@ -17,6 +18,7 @@ all:
           ansible_connection: local   # ./cluster runs on anton
           cluster_ip: 172.16.50.1
           upstream_ip: 192.168.5.200  # on eno1, the office network
+          storage_device: UUID=000658eb-2151-432f-b0e9-d7c43b3f1439   # the RAID1 mirror (md0) mounted at /raiddrive
     compute:
       children:
         gpu_nodes:

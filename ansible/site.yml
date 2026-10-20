@@ -13,6 +13,7 @@
     - firewall
     - time
     - admin_proxy
+    - storage
 
 - name: Compute nodes
   hosts: compute
@@ -20,6 +21,7 @@
   roles:
     - egress
     - time
+    - shared_storage
 
 - name: GPU nodes
   hosts: gpu_nodes
