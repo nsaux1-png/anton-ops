@@ -1,0 +1,101 @@
+# Slurm on compute nodes (SOP-155): slurmd, GPUs found through NVIDIA's library, logins only for users
+# with a job on the node (pam_slurm_adopt; admins exempt), and job processes hidden from each other.
+#
+# ⚠️ NOT YET IN site.yml. Prepared on 2026-10-20 while douglas1 was down; untested. Wire it in (compute
+# play, after slurm_common) only with douglas1 up, the NVIDIA driver working, and a second SSH session
+# to douglas1 open, so a mistake in the login rules can be undone (todo: "When douglas1 is back").
+- name: Cluster zone on the node
+  ansible.posix.firewalld:
+    zone: cluster
+    state: present
+    permanent: true
+  register: node_zone
+
+- name: Reload firewalld so the new zone is active
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+  when: node_zone is changed and not ansible_check_mode
+
+- name: Traffic from the cluster network uses the cluster zone
+  ansible.posix.firewalld:
+    zone: cluster
+    source: "{{ cluster_network }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  when: not (ansible_check_mode and node_zone is changed)
+
+- name: SSH and slurmd open to the cluster network
+  ansible.posix.firewalld:
+    zone: cluster
+    "{{ item.kind }}": "{{ item.value }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - { kind: service, value: ssh }
+    - { kind: port, value: 6818/tcp }
+  when: not (ansible_check_mode and node_zone is changed)
+
+- name: gres.conf (NVIDIA's library finds the GPUs and their model)
+  ansible.builtin.copy:
+    dest: /etc/slurm/gres.conf
+    content: |
+      # Managed by Ansible (ansible/roles/slurm_node), SOP-155.
+      AutoDetect=nvml
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Slurm daemons
+
+- name: slurmd's spool folder
+  ansible.builtin.file:
+    path: /var/spool/slurmd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Folder for slurmd's systemd settings
+  ansible.builtin.file:
+    path: /etc/systemd/system/slurmd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Job processes see only their own user's processes
+  ansible.builtin.copy:
+    src: hide-processes.conf
+    dest: /etc/systemd/system/slurmd.service.d/hide-processes.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Slurm daemons
+
+- name: Run slurmd now and at boot
+  ansible.builtin.systemd:
+    name: slurmd
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode
+
+# Admins (group wheel) skip the check; everyone else needs a running job on this node to log in, and
+# their login is put inside that job (so it's limited and billed like the job).
+- name: Logins only for users with a job here
+  ansible.builtin.blockinfile:
+    path: /etc/pam.d/sshd
+    marker: "# {mark} pam_slurm_adopt (managed by Ansible, ansible/roles/slurm_node, SOP-155)"
+    insertafter: '^account\s+include\s+password-auth'
+    block: |
+      account    [success=done default=ignore] pam_succeed_if.so quiet user ingroup wheel
+      account    required     pam_slurm_adopt.so action_adopt_failure=deny action_generic_failure=deny
+
+# pam_systemd would move adopted logins out of the job's cgroup (review R5).
+- name: No systemd login sessions on compute nodes
+  ansible.builtin.replace:
+    path: /etc/authselect/password-auth
+    regexp: '^(-?session\s+optional\s+pam_systemd\.so.*)$'
+    replace: '# \1   # off on compute nodes: pam_slurm_adopt (SOP-155)'

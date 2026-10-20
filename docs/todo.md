@@ -13,6 +13,15 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Claude:** SOP + Ansible role for the NVIDIA driver; install on douglas1; `nvidia-smi` shows all 10 GPUs; persistence mode on.
 - [ ] **Claude + you:** Full-load test of all 10 GPUs (D47), watching temperatures and power.
 
+## When douglas1 is back (it hung at boot after the NVIDIA driver install, 2026-10-19)
+- [ ] **you:** At douglas1's screen or BMC console, note what it shows. At the GRUB menu, press `e`, add `modprobe.blacklist=nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm` to the end of the `linux` line, then press Ctrl-X.
+- [ ] **Claude:** Read the failed boot's log (`journalctl -b -1`/`-2`), find why the driver hangs the boot, and fix it. Then try a supervised reboot, with a one-time GRUB entry and a fallback.
+- [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
+- [ ] **Claude:** A full `./cluster apply`: accounts, logins, `/cluster` over NFS and the Slurm packages on douglas1. Keep a second SSH session to douglas1 open while sshd changes.
+- [ ] **Claude:** Wire in `slurm_node` (prepared, untested: slurmd, NVML, `pam_slurm_adopt`, hidden job processes). Test logins with and without a job, as admin and as a test user.
+- [ ] **Claude:** GPU job tests, the skipped per-user GPU limit test, real-job charging, running out of credit → grace → stop, and the GPU check program on every GPU.
+- [ ] **you + Claude:** The one-hour full-load test (D47).
+
 ## 1. Finish renaming anton (remove every "douglas1" that refers to this machine)
 - [x] Hostname → `anton` (2026-10-17)
 - [x] RAID array renamed `douglas1:0` → `anton:0` (2026-10-18, `scripts/bootstrap/01-anton-fixes.sh`)
