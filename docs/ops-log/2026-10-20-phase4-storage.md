@@ -32,3 +32,8 @@ By Claude Code (a session on anton as papaya), while the user was away.
 ## Follow-ups
 - The compute-node side (`/cluster` over NFS on douglas1, and `StorageOnComputeNodes`) is pending douglas1.
 - Per-customer limits come with phase 5 (customers and users).
+
+## 2026-10-20 06:39: test fix
+- A full test run failed `test_nfs_version_3_is_off` with `/proc/fs/nfsd/versions: No such file or directory`. The server was fine: read in PID 1's namespace, the file says `-3 +4 +4.1 +4.2`.
+- Cause: the test ran from an SSH login, whose private `/proc` (ProtectProc, SOP-142) doesn't include the nfsd filesystem. Earlier runs came from a session started before that setting.
+- The test now reads the file in PID 1's mount namespace (`nsenter -t 1 -m`).

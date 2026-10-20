@@ -46,7 +46,10 @@ class StorageServer(unittest.TestCase):
             self.assertIn(option, lines[0].split("(")[1].rstrip(")").split(","))
 
     def test_nfs_version_3_is_off(self):
-        self.assertIn("-3", run(HEAD, "sudo cat /proc/fs/nfsd/versions").stdout.split())
+        # Read it in PID 1's mount namespace: a login session's private /proc (ProtectProc on sshd and
+        # user@.service, SOP-142) doesn't have the nfsd filesystem mounted on /proc/fs/nfsd.
+        r = run(HEAD, "sudo nsenter -t 1 -m -- cat /proc/fs/nfsd/versions")
+        self.assertIn("-3", r.stdout.split(), r.stderr)
 
     def test_nfs_only_open_to_the_cluster_network(self):
         self.assertIn("nfs", run(HEAD, "sudo firewall-cmd --zone=cluster --list-services").stdout.split())

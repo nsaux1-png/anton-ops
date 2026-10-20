@@ -47,7 +47,7 @@ Build plan phase 2. The user asked for the build to continue while they were awa
    - **rebooted douglas1 at about 23:33**
 
    **douglas1 hasn't come back.** Ansible gave up after 20 minutes ("Timed out waiting for last boot time check"), and I kept checking until about 00:10.
-   - anton's `eno2` link stays up, so douglas1 has power and link.
+   - ~~anton's `eno2` link stays up, so douglas1 has power and link.~~ **Wrong, corrected 2026-10-20:** anton's `eno2` goes to a switch, not straight to douglas1, so its link says nothing about douglas1 (see "Remote checks" below).
    - douglas1 doesn't answer ARP (`172.16.50.11 dev eno2 FAILED/INCOMPLETE`), so its OS network isn't up.
    - The previous reboot, 20 minutes earlier, took about 3 minutes.
    - There's no remote console from anton: douglas1's BMC isn't reachable from here.
@@ -78,3 +78,10 @@ An emergency-mode stop from a broken initramfs is less likely but possible. The 
 
 ## State of the repo
 The `nvidia_driver` role is in `ansible/site.yml`. Until douglas1 is back, anton-only work runs with `./cluster apply --limit anton`.
+
+## Remote checks, 2026-10-20 06:40–06:50 (the user is in another city)
+- douglas1 still doesn't answer ping or SSH ("No route to host").
+- anton's `eno2` has had no link changes since anton booted on 2026-10-15, including during douglas1's two reboots on 10-19. So it's connected to a switch, which sends LLDP from `c8:33:74:36:0b:17`. The earlier "link up, so douglas1 has power" was wrong.
+- Listened on the cluster network for about a minute (`tcpdump -i eno2`): **no packets from douglas1 at all.** The only other device is a Supermicro BMC (`ac:1f:6b:e8:0e:d7`, DHCP client `udhcp 1.23.1`) asking for an address every few seconds and getting none, because the cluster network has no DHCP server. douglas1's board is ASRock Rack, so this is probably anton's own BMC.
+- Ping sweep of 172.16.50.2–254, plus an IPv6 all-nodes ping on `eno2`: nothing answers.
+- **From here, douglas1's state can't be known:** hung during boot, stopped at a prompt, or powered off. Its BMC isn't on the cluster network, or has no address, so there's no remote console. Someone has to be at the machine, or plug its BMC port into the cluster switch so it can be reached from anton.
