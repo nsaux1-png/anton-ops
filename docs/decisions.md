@@ -74,3 +74,8 @@ Private project under @nicolas478; can be moved to a group later without losing 
 - **SOPs:** discovery run, then script plus SOP page, then a proof run from a clean state with no improvising. Running an SOP needs no AI (plan section 17).
 
 **Why:** the user's answers, 2026-10-19.
+
+## 2026-10-19: Admin tasks are commands, not AI
+Every routine admin task (credits, users, software, maintenance, reports) is a `./cluster` command written as plain code, with tests. People, cron jobs and AI agents call these commands. The commands themselves contain no AI. See `slurm-design.md` section 12.
+
+**Why:** the user, 2026-10-19: the core functions must be robust, real code that can be called from cron or an agent.

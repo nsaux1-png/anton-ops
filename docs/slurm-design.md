@@ -14,6 +14,7 @@
 9. A default price list for everyone, overridden for many customers.
 10. Credits expire 12 months after purchase. No free trials.
 11. Test accounts, and a test suite that runs regularly (weekly).
+12. Simple, repeatable admin commands (credits, software, maintenance and so on) that are real code, not AI. They can be run by hand, from cron, or by an agent.
 
 ## 1. Tracking per user
 - Slurm's accounting (`slurmdbd` + MariaDB on anton) records every job and keeps the records forever. Section 8 lists exactly what's recorded.
@@ -212,6 +213,27 @@ The full design is in plan section 12.2. In short:
 **When:** live tests weekly (Sunday night, on a systemd timer), and a quick subset after every `./cluster apply` or upgrade. If customer jobs are using the GPUs, GPU tests wait up to a few hours, then report "skipped: busy" rather than failing.
 
 **Results:** every run is logged like any `./cluster` run, with a summary by email (plan D34). A failure gets an ops-log entry saying what broke and how it was fixed.
+
+## 12. Admin commands
+Every routine admin task is a `./cluster` command. Each is plain code (Python plus Ansible) in this repo, with tests and no AI inside. A person, a cron job or an AI agent can call it, and it does the same thing every time.
+
+| Area | Commands (proposal) |
+|---|---|
+| Customers and users | `customer add/show/list`, `user add/show/suspend/resume/remove`, `user set kx47 max_gpus=6`, `apply` |
+| Credits | `credits balance <customer>`, `credits topup <customer> <amount> --ref <invoice>`, `credits refund <jobid> --reason …`, `credits adjust <customer> <amount> --reason …`, `credits expiring --within 30d`, `credits statement <customer> <month>` |
+| Billing | `billing report <month>`, `billing check` (ledger vs Slurm cross-check) |
+| Storage | `storage usage [<customer>]` |
+| Nodes and maintenance | `node status`, `node drain/resume <node> --reason …`, `node reboot <node>` (drain, wait for jobs, reboot, run checks, resume), `maintenance start/end`, `upgrade <node>` (OS, driver or Slurm; one node at a time) |
+| Software | `software list`, `software install <name> <version>` (from a recipe in the repo, as an Lmod module), `software remove <name> <version>` |
+| Health, tests, backups | `health` (one-screen status), `test [--quick\|--live]`, `backup run`, `backup verify` |
+
+**Rules for every command**
+- **Same result every time:** running a command twice is safe. A top-up needs an invoice reference, so the same invoice can't be added twice.
+- **Settings stay in one place:** commands that change settings (`user set`, `user suspend`, …) edit `customers.yml`, apply it and commit it. The file stays the single source of truth.
+- **Preview first:** a change shows what it will do and asks. `--dry-run` only shows; `--yes` skips the question, for cron jobs and agents.
+- **Readable by programs:** `--json` output, and clear exit codes: 0 done, 1 failed, 2 refused (bad input or not allowed).
+- **Logged:** every run records who ran it, when, with which arguments and repo version, and the full output (`/var/log/cluster-ops/`). Money changes are also ledger entries.
+- **Permissions by role:** only admins can run `./cluster`. A cron job or agent gets a role listing exactly which commands it may run. For example, a reporting agent may run `credits balance` but not `credits topup`.
 
 ## Open questions
 - ~~Q1. Usernames~~ → **decided:** two letters + two digits, random (section 3).
