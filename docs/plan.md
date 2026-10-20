@@ -160,7 +160,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 - **The anton OS `/home`** (152 GB on the NVMe) is no longer used for users. It's shadowed by the shared `/home`, with admin homes kept separately (`/var/lib/admin-homes`? To be settled in the build).
 
 **Decisions**
-- **D19. Quotas:** default home quota and default project quota. *Recommended: 50 GB home; project quota set per customer.*
+- **D19. Quotas:** default home quota and default project quota. *Recommended: 50 GB home; project quota set per customer.* **→ Decided 2026-10-19: 150 GB per customer by default, one quota covering all its users' home folders and its project folder ([`slurm-design.md`](slurm-design.md) section 4).**
 - **D20. Charge for storage?** *Recommended: yes, per GB-month above a free allowance, at least for projects.*
 - **D21. Backups:** RAID protects against a disk dying, not against deleted files, ransomware, or the server being lost. What's backed up, and where? *Recommended: the Slurm accounting database and the repo nightly, off-site, without exception; customer data backed up only if we sell that, and the terms say so.*
 - **D22. More storage:** 3.7 TB is small for a GPU service. Plan when to add a larger storage server. *Revisit with D2's numbers.*
@@ -343,7 +343,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 
 ---
 
-## 17. Standard procedures (each becomes a `./cluster` command plus a page in `docs/procedures/`)
+## 17. Standard procedures (each becomes a `./cluster` command plus a page in `docs/sop/`)
 
 **How an SOP is made (2026-10-19)**
 1. **Discovery run:** the first time, Claude works the step out on the real machine. Every command and finding goes in the ops log.

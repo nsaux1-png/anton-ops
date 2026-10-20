@@ -79,3 +79,11 @@ Private project under @nicolas478; can be moved to a group later without losing 
 Every routine admin task (credits, users, software, maintenance, reports) is a `./cluster` command written as plain code, with tests. People, cron jobs and AI agents call these commands. The commands themselves contain no AI. See `slurm-design.md` section 12.
 
 **Why:** the user, 2026-10-19: the core functions must be robust, real code that can be called from cron or an agent.
+
+## 2026-10-19: Storage default, VPN later, grace period, what customers see (design Q3; plan D19)
+- **D19: 150 GB per customer by default**, as one quota covering all of the customer's users' home folders and its project folder. Overridable per customer. Shared storage is `/raiddrive` on anton, shared to the nodes over NFS.
+- **Q3: admin logins through a VPN, later.** It's on the to-do list. Until then, admins log in with SSH keys from the local network.
+- **Grace period: 10 minutes.** A job running when its customer runs out of credits gets 10 more minutes, an email, and Slurm's normal end-of-job signals: the `--signal` warning the customer asked for, then `SIGTERM`, then `SIGKILL` 60 s later. The grace minutes are charged.
+- **Customers see their own** usage, per-job charges, credits with expiry dates, prices and price history, and storage. Users marked as managers see their whole customer.
+
+**Why:** the user, 2026-10-19.

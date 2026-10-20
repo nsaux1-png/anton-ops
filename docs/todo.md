@@ -67,7 +67,10 @@ Tick items off here and commit, so the history shows when each was done.
 - [ ] Test customers `c0001`/`c0002` with `zz` users, and `./cluster test`: code tests on every push (GitHub Actions), live tests weekly (systemd timer). See `slurm-design.md` section 11.
 
 ## 9. Repeatable operations (Claude)
-- [ ] `./cluster add-user`, `add-node`, `add-gpu`, `add-disk`, `apply`, `billing-report`, each documented in `docs/procedures/`.
+- [ ] `./cluster add-user`, `add-node`, `add-gpu`, `add-disk`, `apply`, `billing-report`, each documented in `docs/sop/`.
 
 ## 10. Wrap-up
 - [ ] **you or Claude:** Remove `/etc/sudoers.d/90-papaya-temp` from every machine.
+
+## 11. Later
+- [ ] **Claude:** WireGuard VPN on anton for admin logins, then admin SSH only through it and the cluster network (`slurm-design.md` section 3, Q3). Test the VPN and a way back in (console or BMC) before switching off direct admin logins.
