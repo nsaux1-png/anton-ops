@@ -225,7 +225,7 @@ class BruteForce(unittest.TestCase):
 
     def test_the_cluster_network_and_localhost_are_never_blocked(self):
         out = run(HEAD, "sudo fail2ban-client get sshd ignoreip").stdout
-        self.assertIn("127.0.0.1/8", out)
+        self.assertIn("127.0.0.0/8", out)      # fail2ban writes the range by its network address
         self.assertIn("172.16.50.0/24", out)
 
 
