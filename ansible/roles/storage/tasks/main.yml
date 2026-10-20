@@ -46,6 +46,7 @@
   ansible.builtin.dnf:
     name: nfs-utils
     state: present
+  register: nfs_package
 
 - name: NFS version 4 only (version 3 needs extra services and ports)
   community.general.ini_file:
@@ -86,10 +87,11 @@
     mode: "0644"
   notify: Re-export
 
+# In a preview of the first run nfs-utils isn't installed yet, so there's no service to start.
 - name: Run the NFS server now and at boot
   ansible.builtin.systemd:
     name: nfs-server
     enabled: true
     state: started
     daemon_reload: true
-  when: not ansible_check_mode
+  when: not (ansible_check_mode and nfs_package is changed)

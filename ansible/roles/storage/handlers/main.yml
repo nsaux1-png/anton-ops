@@ -1,8 +1,10 @@
+# In a preview of the first run nfs-utils isn't installed yet, so there's nothing to restart.
 - name: Restart the NFS server
   ansible.builtin.systemd:
     name: nfs-server
     state: restarted
     daemon_reload: true
+  when: not (ansible_check_mode and nfs_package is changed)
 
 - name: Re-export
   ansible.builtin.command: exportfs -ra
