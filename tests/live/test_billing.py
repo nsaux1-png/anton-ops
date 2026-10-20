@@ -83,6 +83,12 @@ class CreditsAndLimits(unittest.TestCase):
     def test_adjustment_needs_a_reason(self):
         self.assertEqual(billing("adjust", "c0001", "1", "--ref", "x").returncode, 2)
 
+    def test_monthly_cross_check_runs_and_agrees(self):
+        import datetime
+        r = billing("check", datetime.date.today().strftime("%Y-%m"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("the ledger agrees with Slurm", r.stdout)
+
     def test_unknown_customer_is_refused(self):
         self.assertEqual(billing("grant", "c9999", "1", "--ref", "x").returncode, 2)
 

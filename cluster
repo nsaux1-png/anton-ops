@@ -543,9 +543,10 @@ def build_parser():
                                    "  ./cluster credits statement c4821 2026-10\n"
                                    "  ./cluster credits refund <DBIndex> --reason \"...\"\n"
                                    "  ./cluster credits adjust c4821 -12.50 --ref ADJ-7 --note \"...\"\n"
-                                   "  ./cluster credits hourly   (the timer's run, now)",
+                                   "  ./cluster credits hourly   (the timer's run, now)\n"
+                                   "  ./cluster credits check 2026-10   (ledger vs Slurm, monthly)",
                        formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("action", choices=["topup", "grant", "adjust", "refund", "balance", "statement", "hourly"])
+    p.add_argument("action", choices=["topup", "grant", "adjust", "refund", "balance", "statement", "hourly", "check"])
     p.add_argument("rest", nargs=argparse.REMAINDER)
     p.set_defaults(func=cmd_credits)
 

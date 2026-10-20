@@ -262,3 +262,19 @@ class Statement:
     def closing(self):
         return (self.opening + self.topups + self.grants + self.refunds + self.adjustments
                 - self.charges - self.storage - self.expiries)
+
+
+def compare_charges(expected, charged):
+    """The monthly cross-check (plan 12.3). expected and charged: {job record: micro-credits}, for
+    finished jobs. Returns a list of differences; empty means the ledger agrees with Slurm."""
+    out = []
+    for key in sorted(set(expected) | set(charged)):
+        want, have = expected.get(key), charged.get(key)
+        if want is None:
+            out.append(f"job record {key}: charged {show(have)} but Slurm has no such finished job")
+        elif have is None:
+            out.append(f"job record {key}: Slurm says it cost {show(want)} but it was never charged")
+        elif want != have:
+            out.append(f"job record {key}: charged {show(have)}, Slurm says {show(want)}")
+    return out
+

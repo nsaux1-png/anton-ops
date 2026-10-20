@@ -200,5 +200,18 @@ class Statements(unittest.TestCase):
         self.assertEqual(s.closing, 1_060)
 
 
+
+class CrossCheck(unittest.TestCase):
+    def test_agreement_is_empty(self):
+        self.assertEqual(b.compare_charges({1: 500, 2: 7}, {1: 500, 2: 7}), [])
+
+    def test_every_kind_of_difference_is_reported(self):
+        out = b.compare_charges({1: 500_000, 2: 700_000}, {1: 400_000, 3: 100_000})
+        self.assertEqual(len(out), 3)
+        self.assertIn("job record 1: charged 0.40, Slurm says 0.50", out[0])
+        self.assertIn("job record 2: Slurm says it cost 0.70 but it was never charged", out[1])
+        self.assertIn("job record 3: charged 0.10 but Slurm has no such finished job", out[2])
+
+
 if __name__ == "__main__":
     unittest.main()

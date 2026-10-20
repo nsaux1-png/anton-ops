@@ -297,6 +297,41 @@ def cmd_statement(args, ledger, customers, uids, rates):
     return 0
 
 
+def cmd_check(args, ledger, customers, uids, rates):
+    """The monthly cross-check (plan 12.3): what each finished job of the month was charged, against what
+    Slurm's own records say it should have cost. Exit 1 if anything differs."""
+    start = datetime.datetime.strptime(args.month + "-01", "%Y-%m-%d")
+    end = (start + datetime.timedelta(days=32)).replace(day=1)
+    out = run("sacct", "-D", "-X", "-a", "-P", "-n", "-S", start.strftime("%Y-%m-%dT00:00:00"),
+              "-E", end.strftime("%Y-%m-%dT00:00:00"), "-o", SACCT_FIELDS)
+    expected, charged = {}, {}
+    for line in out.splitlines():
+        f = line.split("|")
+        if len(f) < 11 or f[2] not in customers["customers"] or f[7] in ("", "Unknown", "None"):
+            continue
+        tres = dict(item.split("=", 1) for item in f[10].split(",") if "=" in item)
+        units = int(float(tres.get("billing", "0")))
+        db_index = int(f[0])
+        record = ledger.job(db_index)
+        if units <= 0:
+            continue
+        if record is None:
+            started = local_to_utc(datetime.datetime.fromisoformat(f[6]))
+            price = billing.unit_hour_price(ledger.prices_at(f[2], started), rates, f[4])
+        else:
+            price = record["unit_hour_price"]
+            if not record["refunded"]:
+                charged[db_index] = record["charged"]
+        if not (record and record["refunded"]):
+            expected[db_index] = billing.job_cost(units, int(f[8] or 0), price)
+    differences = billing.compare_charges(expected, charged)
+    for d in differences:
+        print(d)
+    print(f"{args.month}: {len(expected)} finished job(s) checked, "
+          + ("the ledger agrees with Slurm." if not differences else f"{len(differences)} difference(s)."))
+    return 1 if differences else 0
+
+
 def cmd_setup(args, ledger, customers, uids, rates):
     print("created tables" if ledger.setup() else "", end="")
     return 0
@@ -397,6 +432,9 @@ def parser():
     q.add_argument("month", help="YYYY-MM")
     q.add_argument("--json", action="store_true")
     q.set_defaults(func=cmd_statement)
+    q = sub.add_parser("check")
+    q.add_argument("month", help="YYYY-MM")
+    q.set_defaults(func=cmd_check)
     q = sub.add_parser("customer-view")
     q.add_argument("what", choices=["credits", "usage", "prices", "storage"])
     q.add_argument("--month")
