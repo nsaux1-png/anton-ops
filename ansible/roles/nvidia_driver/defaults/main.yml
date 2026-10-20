@@ -10,9 +10,5 @@ nvidia_driver_packages:
   - nvidia-driver-cuda
   - nvidia-persistenced
 
-# NVIDIA's repo. Its signing key is in files/RPM-GPG-KEY-nvidia-cuda; rpm_key checks this fingerprint.
-nvidia_repo_url: https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64
-nvidia_repo_key_fingerprint: 610C7B14E068A878070DA4E99CD0A493D42D0685
-
 # CUDA compiler, used only to build the GPU check in the live tests. Customers bring their own CUDA.
 nvidia_test_cuda: "13-0"

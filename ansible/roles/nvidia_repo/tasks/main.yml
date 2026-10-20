@@ -1,0 +1,25 @@
+# NVIDIA's package repository (SOP-111): the driver on GPU nodes, and the NVML headers for building
+# Slurm on the head node (SOP-151).
+# The key is kept in the repo, so trusting it needs no download; rpm_key checks its fingerprint.
+- name: NVIDIA's signing key file
+  ansible.builtin.copy:
+    src: RPM-GPG-KEY-nvidia-cuda
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Trust NVIDIA's signing key
+  ansible.builtin.rpm_key:
+    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
+    fingerprint: "{{ nvidia_repo_key_fingerprint }}"
+    state: present
+  when: not ansible_check_mode
+
+- name: NVIDIA's repository
+  ansible.builtin.template:
+    src: nvidia-cuda.repo.j2
+    dest: /etc/yum.repos.d/nvidia-cuda.repo
+    owner: root
+    group: root
+    mode: "0644"

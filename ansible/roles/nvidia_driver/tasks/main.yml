@@ -1,29 +1,6 @@
 # NVIDIA driver on GPU nodes (SOP-111): open kernel modules built with DKMS, one pinned version,
 # persistence mode on. Reboots the node when the driver isn't loaded yet (first install).
-# The key is kept in the repo, so trusting it needs no download; rpm_key checks its fingerprint.
-- name: NVIDIA's signing key file
-  ansible.builtin.copy:
-    src: RPM-GPG-KEY-nvidia-cuda
-    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
-    owner: root
-    group: root
-    mode: "0644"
-
-- name: Trust NVIDIA's signing key
-  ansible.builtin.rpm_key:
-    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
-    fingerprint: "{{ nvidia_repo_key_fingerprint }}"
-    state: present
-  when: not ansible_check_mode
-
-- name: NVIDIA's repository
-  ansible.builtin.template:
-    src: nvidia-cuda.repo.j2
-    dest: /etc/yum.repos.d/nvidia-cuda.repo
-    owner: root
-    group: root
-    mode: "0644"
-
+# NVIDIA's repository comes from the nvidia_repo role, which runs first.
 - name: Build tools for DKMS, and the versionlock plugin
   ansible.builtin.dnf:
     name:

@@ -23,6 +23,7 @@
     - admin_proxy
     - storage
     - customer_storage
+    - nvidia_repo         # NVML headers for building Slurm
 
 - name: Compute nodes
   hosts: compute
@@ -36,4 +37,5 @@
   hosts: gpu_nodes
   become: true
   roles:
+    - nvidia_repo
     - nvidia_driver

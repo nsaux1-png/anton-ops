@@ -1,0 +1,6 @@
+# Versions of software we build or pin ourselves. Changing one is a procedure, not a quick edit:
+# follow the SOP named next to it.
+slurm:                     # build: SOP-151 (./cluster build slurm); install: SOP-152
+  version: 26.05.5
+  sha256: 4680cafc82b0689865c885eb703441e7ebf764896c40fd03a50f2fcb60664f68   # SchedMD's GitHub release digest
+  cuda_nvml: "13-0"        # cuda-nvml-devel package that gives Slurm its NVIDIA GPU support

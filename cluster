@@ -224,6 +224,19 @@ def run_playbook(args, log, playbook_file):
     return EXIT_OK
 
 
+def cmd_build(args, log):
+    """Build software we make ourselves; versions come from config/versions.yml."""
+    import yaml
+    with open(os.path.join(REPO, "config", "versions.yml")) as f:
+        versions = yaml.safe_load(f)
+    if args.what == "slurm":
+        s = versions["slurm"]
+        code, _ = log.run([os.path.join(REPO, "scripts", "build", "slurm-rpms.sh"),
+                           str(s["version"]), s["sha256"], str(s["cuda_nvml"])])
+        return EXIT_OK if code == 0 else EXIT_FAILED
+    raise Refused(f"don't know how to build {args.what}")
+
+
 # --- customers and users -----------------------------------------------------
 
 TEST_KEY_DIR = "/etc/cluster/test-keys"
@@ -433,6 +446,10 @@ def build_parser():
     p.add_argument("--live", action="store_true", help="only the live tests")
     p.add_argument("-k", metavar="PATTERN", help="only tests whose name contains PATTERN")
     p.set_defaults(func=cmd_test)
+
+    p = sub.add_parser("build", help="build software we make ourselves (slurm), from config/versions.yml")
+    p.add_argument("what", choices=["slurm"])
+    p.set_defaults(func=cmd_build)
 
     p = sub.add_parser("runs", help="list recent runs from the run log")
     p.add_argument("-n", type=int, default=20, help="how many (default 20)")
