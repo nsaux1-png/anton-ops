@@ -19,7 +19,7 @@
 # Fails safely if anything is using /raiddrive: then it's a job for a maintenance window, not a surprise.
 - name: Unmount and mount /raiddrive so the quota options take effect
   ansible.builtin.shell: umount /raiddrive && mount /raiddrive
-  when: quota_state.stdout.count('Enforcement: ON') < 3
+  when: "quota_state.stdout.count('Enforcement: ON') < 3"
 
 - name: Customer folders
   ansible.builtin.file:
