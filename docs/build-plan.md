@@ -36,7 +36,7 @@ Then commit and push. Status as of 2026-10-19.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 3.1 | Mirror on anton (keeping the DNF module metadata NVIDIA's and AppStream's repos need): dated snapshots of Rocky BaseOS/AppStream, EPEL, NVIDIA's repo and our Slurm builds on `/raiddrive`, served over HTTP to the cluster network only. `./cluster mirror sync` and `mirror use <date>`. | 121 | | |
+| 3.1 | Mirror on anton (keeping the DNF module metadata NVIDIA's and AppStream's repos need): dated snapshots of Rocky BaseOS/AppStream, EPEL, NVIDIA's repo and our Slurm builds on `/raiddrive`, served over HTTP to the cluster network only. `./cluster mirror sync` and `mirror use <date>`. | 121 | | not started: a large download (tens of GB) over the shared office network; better done with the user around |
 | 3.2 | Switch douglas1's `dnf` from the proxy to the mirror; check that versions are identical | 122 | | |
 
 ## Phase 4: Storage
@@ -75,7 +75,7 @@ Then commit and push. Status as of 2026-10-19.
 |---|---|---|---|---|
 | 7.1 | `rates.yml` and per-customer prices; the ledger (whole-number amounts); credit batches with 12-month expiry; hourly charging keyed on `DBIndex`; Slurm limits sync (usage + what the balance buys); the 10-minute grace step | 161 | Set the prices (D29) and what 1 credit is worth (D40) | ◐ done on anton 2026-10-20 with placeholder prices; real-job charging and grace wait for douglas1 |
 | 7.2 | Customer commands: `credits`, `myusage`, `prices`, `mystorage` | 162 | | ✅ done 2026-10-20 |
-| 7.3 | Admin commands: `credits topup/refund/adjust`, statements, `billing check`. Dry-run a month on the test accounts. | 211 | Review a test statement | ◐ top-up, grant, adjust, refund, balance, statement done 2026-10-20; billing check and a month's dry run wait for jobs |
+| 7.3 | Admin commands: `credits topup/refund/adjust`, statements, `billing check`. Dry-run a month on the test accounts. | 211 | Review a test statement | ◐ top-up, grant, adjust, refund, balance, statement done 2026-10-20; the monthly cross-check (`credits check`) done 2026-10-20; a month's dry run with real jobs waits for douglas1 |
 
 ## Phase 8: Monitoring and alerts
 **Tests written in this phase:** each alert fires on a simulated fault.

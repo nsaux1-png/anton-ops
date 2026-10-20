@@ -14,6 +14,7 @@ The day-to-day money tasks. Each command runs `cluster-billing` on anton and is 
 | Balances | `./cluster credits balance [c4821]`: available credit, unpaid charges, and each batch with its expiry date. |
 | Statement | `./cluster credits statement c4821 2026-10 [--json]`: opening balance, top-ups, grants, refunds, adjustments, compute, storage, expired, closing balance, then every entry. |
 | Run billing now | `./cluster credits hourly`. Normally the timer does it every hour. |
+| **Monthly cross-check** | `./cluster credits check 2026-10`: every finished job of the month, its ledger charge against what Slurm's records say it should cost. Run it before sending statements; any difference is listed, and the exit code is 1. |
 
 ## Before you start
 - For a top-up: the payment has arrived. Have the customer code and the invoice number.
