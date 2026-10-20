@@ -1,5 +1,7 @@
+# In a preview of the first run squid isn't installed yet, so there's nothing to restart.
 - name: Restart squid
   ansible.builtin.systemd:
     name: squid
     state: restarted
     daemon_reload: true
+  when: not (ansible_check_mode and squid_package is changed)
