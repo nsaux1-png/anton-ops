@@ -1,0 +1,126 @@
+# Billing and credits on the head node (SOP-161):
+#   - the ledger database (cluster_ledger) and a scratch copy for tests (cluster_ledger_test)
+#   - the cluster-billing tool (clusterlib from this repo) and the configuration it bills by
+#   - the hourly run: prices, storage, job charges, expiry, the grace step, Slurm credit limits
+#   - customers' commands: credits, myusage, prices, mystorage
+- name: Python's MySQL driver
+  ansible.builtin.dnf:
+    name: python3-PyMySQL
+    state: present
+
+- name: Database password for billing, made once (never in the repo)
+  ansible.builtin.shell: umask 077 && openssl rand -hex 24 > /etc/cluster/secrets/billingdb-password
+  args:
+    creates: /etc/cluster/secrets/billingdb-password
+
+- name: The billing database setup tool
+  ansible.builtin.copy:
+    src: cluster-billingdb-setup
+    dest: /usr/local/sbin/cluster-billingdb-setup
+    owner: root
+    group: root
+    mode: "0700"
+  register: billingdb_tool
+
+- name: Billing databases and their user
+  ansible.builtin.command: "/usr/local/sbin/cluster-billingdb-setup{{ ' --check' if ansible_check_mode else '' }}"
+  register: billingdb_changes
+  changed_when: billingdb_changes.stdout | length > 0
+  check_mode: false
+  when: not (ansible_check_mode and billingdb_tool is changed)
+
+- name: Folder for the installed code
+  ansible.builtin.file:
+    path: /usr/local/lib/cluster/clusterlib
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: The code (clusterlib from the repo)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../clusterlib/{{ item }}"
+    dest: "/usr/local/lib/cluster/clusterlib/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [__init__.py, billing.py, ledger.py, config.py, billing_cli.py]
+
+- name: The cluster-billing command (root only; admins use ./cluster credits)
+  ansible.builtin.copy:
+    src: cluster-billing
+    dest: /usr/local/sbin/cluster-billing
+    owner: root
+    group: root
+    mode: "0700"
+  register: billing_tool
+
+- name: Folder for the configuration billing uses (as last applied)
+  ansible.builtin.file:
+    path: /etc/cluster/config
+    state: directory
+    owner: root
+    group: wheel
+    mode: "0750"
+
+- name: The configuration billing uses
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../config/{{ item }}"
+    dest: "/etc/cluster/config/{{ item }}"
+    owner: root
+    group: wheel
+    mode: "0640"
+  loop: [customers.yml, uids.yml, rates.yml]
+
+- name: Ledger tables
+  ansible.builtin.command: /usr/local/sbin/cluster-billing setup
+  register: ledger_setup
+  changed_when: ledger_setup.stdout | length > 0
+  when: not ansible_check_mode
+
+- name: Hourly billing run
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [cluster-billing-hourly.service, cluster-billing-hourly.timer]
+  register: billing_units
+
+- name: Run it every hour, from now on
+  ansible.builtin.systemd:
+    name: cluster-billing-hourly.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and billing_units is changed)
+
+- name: Customers' commands
+  ansible.builtin.copy:
+    dest: "/usr/local/bin/{{ item.command }}"
+    content: |
+      #!/bin/sh
+      # Managed by Ansible (ansible/roles/billing), SOP-162. Shows only your own {{ item.what }}.
+      exec sudo -n /usr/local/sbin/cluster-billing customer-view {{ item.view }} "$@"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - { command: credits, view: credits, what: "credits (and, for managers, your customer's statement)" }
+    - { command: myusage, view: usage, what: "jobs and what they cost" }
+    - { command: prices, view: prices, what: "prices and their history" }
+    - { command: mystorage, view: storage, what: "storage use and its cost" }
+
+# The only thing customers can run with sudo. cluster-billing takes who they are from sudo itself
+# (SUDO_USER), never from the command line, and answers only about them.
+- name: Let customers see their own billing
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/50-cluster-customer-views
+    content: |
+      # Managed by Ansible (ansible/roles/billing), SOP-162.
+      ALL ALL=(root) NOPASSWD: /usr/local/sbin/cluster-billing customer-view *
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

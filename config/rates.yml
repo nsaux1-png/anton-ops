@@ -1,0 +1,19 @@
+# Default prices (slurm-design.md section 9). Customers can have their own prices or a discount in
+# customers.yml ("rates:", "discount_percent:").
+#
+# ⚠️ PLACEHOLDER PRICES: the user sets the real ones (plan D29). Credits are US dollars (plan D40,
+# working assumption).
+#
+# Each entry applies from its date (UTC) until the next entry's date. A job is charged at the prices in
+# effect when it started; storage at the prices in effect on the month's first reading.
+
+units_per_gpu: 10          # Slurm billing units per GPU share (TRESBillingWeights GRES/gpu=10)
+partitions:                # the GPU model of each GPU partition (one model per partition)
+  gpu: rtx5070ti
+
+prices:
+  - from: 2026-10-01
+    gpu_hour:
+      rtx5070ti: 0.50      # per GPU-hour, with its 5 cores and 20 GB
+    cpu_core_hour: 0.02    # CPU-only partitions, per core-hour
+    storage_gb_month: 0.05 # per GiB of the month's peak

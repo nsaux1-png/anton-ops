@@ -103,6 +103,15 @@ class ClusterCommandTest(unittest.TestCase):
         self.assertIn("two letters (not i, l or o)", r.stdout)
         self.assertEqual(self.box.calls_made(), [])
 
+    def test_apply_refuses_unknown_customer_prices(self):
+        text = self.box.read("config/customers.yml").replace("    name: Acme\n", "    name: Acme\n    rates:\n      gpu_hour.h100: 2.00\n")
+        self.box.write("config/customers.yml", text)
+        self.box.git("commit", "-qam", "bad price")
+        r = self.cluster("apply", "--yes")
+        self.assertEqual(r.returncode, 2, r.stdout)
+        self.assertIn("customer c4821: rates: no GPU model 'h100'", r.stdout)
+        self.assertEqual(self.box.calls_made(), [])
+
     def test_runs_lists_the_index(self):
         self.cluster("ping")
         r = self.cluster("runs")

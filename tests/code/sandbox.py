@@ -67,6 +67,7 @@ customers:
         email: alice@acme.example
         ssh_key: {KEY}
 """)
+        shutil.copy(os.path.join(REPO, "config", "rates.yml"), os.path.join(self.root, "config", "rates.yml"))
         for name in ("ansible/site.yml", "ansible/upgrade.yml", "config/nodes.yml"):
             self.write(name, "")
         bin_dir = os.path.join(base, "bin")

@@ -1,0 +1,9 @@
+# Managed by Ansible (ansible/roles/billing), SOP-161.
+[Unit]
+Description=Hourly billing: prices, storage, job charges, expiry, grace, Slurm credit limits (SOP-161)
+After=mariadb.service slurmdbd.service slurmctld.service
+Requires=mariadb.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cluster-billing hourly

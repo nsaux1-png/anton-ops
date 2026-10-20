@@ -1,0 +1,10 @@
+# Managed by Ansible (ansible/roles/billing), SOP-161.
+[Unit]
+Description=Run the hourly billing (SOP-161)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+#!/usr/bin/python3 -I
+# Managed by Ansible (ansible/roles/billing), SOP-161. The code is clusterlib/billing_cli.py in the repo.
+import sys
+
+sys.path.insert(0, "/usr/local/lib/cluster")
+
+from clusterlib.billing_cli import main   # noqa: E402
+
+sys.exit(main())

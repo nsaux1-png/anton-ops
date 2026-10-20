@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# The billing databases and their user (SOP-161). Installed by Ansible (ansible/roles/billing).
+#   cluster_ledger       the ledger: every credit movement
+#   cluster_ledger_test  a scratch copy the tests fill and empty
+# Prints one line per change, nothing when all is already right. --check: report only.
+set -euo pipefail
+
+CHECK=${1:-}
+PASSWORD_FILE=/etc/cluster/secrets/billingdb-password
+q() { mysql -N -B -e "$1"; }
+
+changes=()
+for db in cluster_ledger cluster_ledger_test; do
+  [[ $(q "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='$db'") == 1 ]] \
+    || changes+=("create the database $db")
+  if ! MYSQL_PWD=$(cat "$PASSWORD_FILE") mysql -u cluster_billing -N -B -e "SELECT 1" "$db" >/dev/null 2>&1; then
+    changes+=("give the database user cluster_billing access to $db")
+  fi
+done
+
+[[ ${#changes[@]} -eq 0 ]] && exit 0
+printf '%s\n' "${changes[@]}"
+[[ $CHECK == --check ]] && exit 0
+
+PASSWORD=$(cat "$PASSWORD_FILE")
+mysql <<SQL
+CREATE DATABASE IF NOT EXISTS cluster_ledger;
+CREATE DATABASE IF NOT EXISTS cluster_ledger_test;
+CREATE USER IF NOT EXISTS 'cluster_billing'@'localhost' IDENTIFIED BY '$PASSWORD';
+ALTER USER 'cluster_billing'@'localhost' IDENTIFIED BY '$PASSWORD';
+GRANT ALL PRIVILEGES ON cluster_ledger.* TO 'cluster_billing'@'localhost';
+GRANT ALL PRIVILEGES ON cluster_ledger_test.* TO 'cluster_billing'@'localhost';
+FLUSH PRIVILEGES;
+SQL
