@@ -1,0 +1,4 @@
+# Services anton offers to the cluster network. Later roles add theirs (NFS, Slurm, time).
+cluster_zone_services:
+  - ssh
+  - squid

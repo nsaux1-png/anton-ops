@@ -63,7 +63,7 @@ How to read this:
 - **Naming:** `douglas1`, `douglas2`, … for GPU nodes? Or a pattern by type (e.g. `gpu01`, `cpu01`)? See D8.
 - **Name resolution:** `/etc/hosts` on every machine, generated from the inventory. A DNS server isn't needed until much larger.
 - **No internet for customers' jobs** (user, 2026-10-19; replaces the earlier NAT plan). anton doesn't route traffic. Admins on compute nodes reach the web through a logged proxy on anton; customer accounts there can reach only the cluster network (SOP-103, SOP-104). Nodes get packages from anton's mirror (D46) and time from anton. Customers download data and software on anton, the login node, into their shared folders.
-- **Firewall on anton:** upstream side allows only SSH (and later, monitoring for admins); cluster side trusted.
+- **Firewall on anton:** upstream side allows only SSH (and later, monitoring for admins); cluster side gets its own zone with only named services open (SOP-103).
 - **Customer access:** SSH to anton from the internet, keys only. Possibly a VPN instead (see D10).
 - **BMC/IPMI** (remote power and console for each server): put them on their own management network, reachable only from anton or admins.
 
@@ -95,7 +95,7 @@ Compute nodes have no direct internet (section 3); admins reach it only through 
 
 Manually copying `.rpm` files over is not how it's done; the "mirror" approach is the professional version of copying, done automatically by a script.
 
-**Proposal:** a **local snapshot mirror on anton** for system packages (Rocky BaseOS/AppStream, EPEL, NVIDIA's repo, plus our own Slurm builds). This fits "repeatable" best: a node added in six months gets exactly what douglas1 has, unless we deliberately move everyone to a newer snapshot. User jobs still use the NAT for pip/conda/datasets.
+**Proposal:** a **local snapshot mirror on anton** for system packages (Rocky BaseOS/AppStream, EPEL, NVIDIA's repo, plus our own Slurm builds). This fits "repeatable" best: a node added in six months gets exactly what douglas1 has, unless we deliberately move everyone to a newer snapshot.
 
 **Decisions**
 - **D46. Package source for nodes:** (a) direct, (b) proxy, (c) local snapshot mirror. *Recommended: (c). It can start in step 1 of the build, so no node is ever installed from a moving target.* **→ Decided 2026-10-19: (c), in place before the second node or the first customer ([`build-plan.md`](build-plan.md) phase 3). Until then douglas1 installs through the admin proxy, with the key versions pinned.**
@@ -110,14 +110,14 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 - **Ansible** (agreed), run from anton. Repo layout:
   ```
   cluster                     the one command operators run
-  inventory/nodes.yml         every machine: name, IPs, type, GPUs, disks
-  inventory/users.yml         every user: name, UID, account, SSH keys, status
-  inventory/accounts.yml      customers/projects and their billing settings
-  inventory/group_vars/       cluster-wide settings (Slurm, NFS, rates…)
+  config/nodes.yml            every machine: name, IPs, type, GPUs, disks (Ansible's inventory)
+  config/customers.yml        customers and users: limits, prices, SSH keys, status
+  config/rates.yml            the default price list (customers.yml holds overrides)
+  ansible/group_vars/         cluster-wide settings (Slurm, NFS, rates…)
   playbooks/                  one per job: site.yml (everything), add-node, add-user…
   roles/                      one per component: common, nfs, slurm-controller, slurm-node, nvidia, …
   scripts/                    helpers (billing report, bootstrap)
-  docs/                       plan, decisions, procedures, ops log
+  docs/                       plan, decisions, SOPs, ops log
   ```
 - **Every run is logged** to `/var/log/cluster-ops/` with: timestamp, operator, command, git commit, whether the repo had uncommitted changes, and full output. The command refuses to run with uncommitted changes, unless forced, so every change to the cluster matches a commit.
 - **Secrets** (munge key, DB passwords) are encrypted in the repo with Ansible Vault. The vault password lives only on anton, readable by root.
@@ -132,10 +132,10 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 ## 6. Users, accounts and access
 
 **Proposal**
-- **Source of truth:** `inventory/users.yml`. Each user has a name, UID (fixed forever, never reused), primary account, SSH public keys, email, and status (active/suspended/removed).
+- **Source of truth:** `config/customers.yml` ([`slurm-design.md`](slurm-design.md) section 2). Each user has a name, UID (fixed forever, never reused), primary account, SSH public keys, email, and status (active/suspended/removed).
 - **UID ranges:** admins 1000–1999, customers 10000+. Group IDs match.
 - **Logins:** SSH keys only, no passwords. Users can't use sudo.
-- **Slurm accounts:** one per customer, with sub-accounts per project if a customer wants separate bills. Users can belong to several accounts.
+- **Slurm accounts:** one per customer, with sub-accounts per project if a customer wants separate bills. Each user belongs to exactly one customer (a person working for two customers gets two accounts); storage quotas depend on it.
 - **Suspending a user:** keeps their files and history, but blocks login and job submission.
 - **Removing a user:** login and jobs blocked, files kept for N days (D18), then deleted. Their UID is never reused, so old accounting records stay unambiguous.
 
@@ -161,7 +161,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 
 **Decisions**
 - **D19. Quotas:** default home quota and default project quota. *Recommended: 50 GB home; project quota set per customer.* **→ Decided 2026-10-19: 150 GB per customer by default, one quota covering all its users' home folders and its project folder ([`slurm-design.md`](slurm-design.md) section 4).**
-- **D20. Charge for storage?** *Recommended: yes, per GB-month above a free allowance, at least for projects.*
+- **D20. Charge for storage?** *Recommended: yes, per GB-month above a free allowance, at least for projects.* **→ Decided 2026-10-19: yes, the month's peak × price per GB, with no free allowance ([`slurm-design.md`](slurm-design.md) section 4).**
 - **D21. Backups:** RAID protects against a disk dying, not against deleted files, ransomware, or the server being lost. What's backed up, and where? *Recommended: the Slurm accounting database and the repo nightly, off-site, without exception; customer data backed up only if we sell that, and the terms say so.*
 - **D22. More storage:** 3.7 TB is small for a GPU service. Plan when to add a larger storage server. *Revisit with D2's numbers.*
 
@@ -186,13 +186,13 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
   - maybe `debug`: short jobs, high priority, for testing
 - **Resource enforcement:** cgroup v2. A job only sees the CPUs, memory and GPUs it asked for and can't use more.
 - **Scheduling:** backfill, fair-share between accounts so one customer can't monopolize the cluster, time limits per partition.
-- **GPU requests:** `--gpus=N` or `--gres=gpu:N`. Each GPU comes with a fixed share of CPU and RAM (on douglas1: up to 5 cores and 24 GB per GPU). See [`slurm-design.md`](slurm-design.md) section 7.
+- **GPU requests:** `--gpus=N` or `--gres=gpu:N`. Each GPU comes with a fixed share of CPU and RAM (on douglas1: up to 5 cores and 20 GB per GPU). See [`slurm-design.md`](slurm-design.md) section 7.
 - **Node health check** before and between jobs; a sick node is drained automatically.
 - **Interactive use:** `srun --pty` / `salloc` for interactive sessions, billed the same as batch jobs.
 
 **Decisions**
 - **D23. Maximum job time limit.** *Recommended: 7 days max, 1 hour default if unspecified.*
-- **D24. Priority model:** pure fair-share, or customers who pay more get priority (QOS tiers)? *Recommended: fair-share now, design the QOS levels so a "priority" tier can be sold later.*
+- **D24. Priority model:** pure fair-share, or customers who pay more get priority (QOS tiers)? *Recommended: fair-share now, design the QOS levels so a "priority" tier can be sold later.* **Note (review 2026-10-19): a job has only one QOS, and the QOS carries the credit limit, so a priority tier has to be a separate partition, not a QOS.**
 - **D25. Preemption:** can high-priority jobs interrupt others? *Recommended: no, at launch.*
 - **D26. Jupyter/web access** (Open OnDemand)? *Recommended: later; SSH first.*
 
@@ -254,7 +254,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
   | `expiry` | unused credits expired (if D42 says they expire) |
 
   Nothing is ever edited or deleted; corrections are new entries. **Balance = sum of entries.** Every number on an invoice or statement can be traced back to jobs and entries.
-- **Charging:** a script runs every few minutes, finds jobs that finished since the last run, and writes one `charge` entry per job. Each job is charged exactly once (the job ID is the key), so re-running the script never double-charges.
+- **Charging:** a script runs every few minutes, finds jobs that finished since the last run, and writes one `charge` entry per job. Each job is charged exactly once, keyed on Slurm's database record ID (`DBIndex`, not the job ID, which repeats), so re-running the script never double-charges ([`slurm-design.md`](slurm-design.md) section 9).
 - **Enforcement in Slurm:** each account gets a spending limit in Slurm equal to its credit balance. When the account runs out:
   - **new jobs don't start** and show a clear reason ("account out of credits");
   - **running jobs aren't killed**;
@@ -280,7 +280,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 - **D32. Minimum billing increment:** per second, minute, or hour? *Recommended: per minute.*
 - **D33. Invoicing:** which tool sends invoices and takes payment, and who reviews before it goes out? *Is there an accounting system (e.g. QuickBooks, Stripe) top-ups should come from?*
 - **D40. What 1 credit is worth:** a fixed money amount (e.g. 1 credit = $0.01), or 1 GPU-hour-equivalent? *Recommended: tie credits to money. Prices can then change without changing anyone's balance.*
-- **D41. Running out mid-job:** with the "must cover full time limit" rule a job can't overdraw by much. Do we also allow a small overdraft (grace) so jobs aren't blocked at e.g. 0.5 credits short? *Recommended: no overdraft at launch.*
+- **D41. Running out mid-job:** with the "must cover full time limit" rule a job can't overdraw by much. Do we also allow a small overdraft (grace) so jobs aren't blocked at e.g. 0.5 credits short? *Recommended: no overdraft at launch.* **→ 2026-10-19: no overdraft for starting jobs. The balance can still go slightly negative through storage and the 10-minute grace ([`slurm-design.md`](slurm-design.md) section 9).**
 - **D42. Do credits expire?** *Recommended: after 12 months, stated in the terms. Expired credits are a ledger entry, not a silent deletion.* **→ Decided 2026-10-19: credits expire 12 months after purchase; the batch that expires soonest is used first. Design in [`slurm-design.md`](slurm-design.md) section 9.**
 - **D43. Free trial credits** for new customers? How many? **→ Decided 2026-10-19: none. Compute is a commodity; customers buy credits from the start.**
 - **D44. Top-ups:** entered by an admin after payment is received, or automatic from a payment system (e.g. Stripe webhook)? *Recommended: admin-entered at launch; automate once volume justifies it.*
@@ -370,15 +370,6 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 
 Step by step, with what Claude does in each step and its SOP: [`build-plan.md`](build-plan.md).
 
-1. **Foundations:** Ansible + repo layout + `./cluster` with logging; hosts, time, firewall; local package mirror on anton (D46), served to the cluster network only. Nodes get no internet route.
-2. **GPU:** NVIDIA driver on douglas1, then the full-load test (D47). Moved up 2026-10-19: the user wants it early. It needs only Ansible, `./cluster` and the package mirror from step 1, which mirrors NVIDIA's repo too.
-3. **Storage:** `/raiddrive` layout, NFS, quotas.
-4. **Users:** users.yml, admin accounts, SSH hardening.
-5. **Slurm:** build, accounting DB, controller, douglas1 as first node, partitions, enforcement.
-6. **Billing and credits:** accounts, rates, ledger, charging script, Slurm credit limits, `credits` command, statements; dry-run a month on test jobs, including a deliberate run-out-of-credits test and a cross-check of ledger vs. Slurm.
-7. **Monitoring and alerts.**
-8. **Backups**, then a restore test.
-9. **User guide and terms**, onboard a friendly first customer.
-10. **Remove temporary sudo**; security review.
+In short: foundations (Ansible, `./cluster`, firewall, admin proxy, network limits, time) → GPU driver → package mirror → storage → users and access → Slurm → billing and credits → monitoring → backups → test suite → launch. A separate login host and removing the temporary sudo come before the first customer. [`build-plan.md`](build-plan.md) is the authoritative order.
 
 Each step ends with a test, written down in the ops log, and that test joins the weekly test suite ([`slurm-design.md`](slurm-design.md) section 11).

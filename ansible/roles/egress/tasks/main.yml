@@ -1,0 +1,46 @@
+# Compute nodes: network limits for customer accounts (SOP-104), and the admin proxy for dnf and
+# admin shells (SOP-103).
+- name: Network limits for customer accounts
+  ansible.builtin.template:
+    src: cluster-egress.nft.j2
+    dest: /etc/nftables/cluster-egress.nft
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/nft -c -f %s
+  notify: Load the egress rules
+
+- name: Service that loads them at boot
+  ansible.builtin.copy:
+    src: cluster-egress.service
+    dest: /etc/systemd/system/cluster-egress.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: egress_unit
+
+# In a preview of the first run the service doesn't exist yet, so this waits.
+- name: Load them now and at boot
+  ansible.builtin.systemd:
+    name: cluster-egress
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and egress_unit is changed)
+
+- name: dnf goes through the admin proxy
+  community.general.ini_file:
+    path: /etc/dnf/dnf.conf
+    section: main
+    option: proxy
+    value: "http://{{ admin_proxy_host }}:{{ admin_proxy_port }}"
+    no_extra_spaces: true
+    mode: "0644"
+
+- name: Admin shells use the admin proxy
+  ansible.builtin.template:
+    src: admin-proxy.sh.j2
+    dest: /etc/profile.d/admin-proxy.sh
+    owner: root
+    group: root
+    mode: "0644"

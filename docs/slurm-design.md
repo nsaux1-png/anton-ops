@@ -1,6 +1,6 @@
 # Slurm system design
 
-**Status: DRAFT, 2026-10-19 (seventh round).** Built from the user's requirements given that day. This page is the overall shape; [`plan.md`](plan.md) has the details of each piece.
+**Status: DRAFT, 2026-10-19 (eighth round).** Built from the user's requirements given that day. This page is the overall shape; [`plan.md`](plan.md) has the details of each piece.
 
 ## Changes by round (2026-10-19)
 1. First draft from requirements 1–6.
@@ -10,6 +10,7 @@
 5. Decided: 10-minute grace period with signals, 150 GB per customer on `/raiddrive`, VPN later. Added: what customers can see.
 6. Decided: no internet from compute nodes. Found: douglas1's memory slots are full, so more RAM means new sticks (COP-43).
 7. Corrected: no internet for **customers' jobs**; admins reach the internet from compute nodes through a logged proxy on anton. System packages come from a mirror before the second node. Step-by-step build plan in [`build-plan.md`](build-plan.md).
+8. Independent plan review applied ([`reviews/2026-10-19-plan-review.md`](reviews/2026-10-19-plan-review.md)). Fixed: the credit limit formula, storage enforced by group quotas, Slurm's own job-script purge, no GPU energy accounting, `ProtectProc` instead of `hidepid`, integer billing units, one partition per GPU model, running jobs charged hourly, CUDA 12.8+. New questions Q8–Q9.
 
 ## Requirements (user, 2026-10-19)
 1. Track usage per user.
@@ -68,11 +69,12 @@ customers:
 - Default prices go in `config/rates.yml` and machines in `config/nodes.yml`.
 
 ## 3. Admin side closed off
-- Customers have no sudo. They can only log into a compute node while one of their own jobs is running on it (`pam_slurm_adopt`).
+- Customers have no sudo. They can only log into a compute node while one of their own jobs is running on it (`pam_slurm_adopt` with `action_adopt_failure=deny`, Slurm's `PrologFlags=contain`, and `pam_systemd` removed from sshd's login steps). Slurm doesn't run jobs as root (`DisableRootJobs=YES`).
+- Customers' SSH keys are kept in root-owned files (`/etc/ssh/authorized_keys/<user>`), so a customer can't add keys and share an account.
 - Customers only see their own data:
-  - their own jobs and usage (Slurm `PrivateData=jobs,usage,users,accounts`)
+  - their own jobs and usage (Slurm `PrivateData=jobs,usage,users,accounts`, set in both `slurm.conf` and `slurmdbd.conf`. Without the second, `sacct` shows other customers' data.)
   - their own files (home folders `0700`, the folder holding them `0711` so it can't be listed; a project folder is readable only by that customer)
-  - their own processes (`/proc` mounted with `hidepid`)
+  - their own processes. Mounting `/proc` with `hidepid` isn't supported on Rocky 9 (it breaks systemd), so sshd and slurmd run with systemd's `ProtectProc=invisible` instead. Everything a customer starts inherits a `/proc` that hides other users' processes. To be tested.
 - Admin material is readable by root only: this repo and the config files, the vault password, the ops logs, the database credentials (`slurmdbd.conf`, mode `0600`), the munge key and the saved job scripts. Only admin accounts are Slurm administrators.
 - **Admin logins through a VPN, later** (decided, Q3: on the to-do list, not needed at launch).
   - anton's upstream network is shared with other machines (plan D11), so "from the local network only" isn't private enough.
@@ -97,14 +99,20 @@ customers:
 ## 4. Compute and storage: tracking, limits, billing
 - **Compute** comes from Slurm accounting, priced per GPU-hour (by GPU model) and per CPU-hour (section 9, plan D29).
 - **Where:** all shared storage is on `/raiddrive` on anton (the 3.7 TB mirrored pair), shared to the nodes over NFS. That covers home folders, customer project folders and shared software. Scratch is local to each node. If storage moves to a bigger server later (plan D22), the paths customers see stay the same.
-- **Storage limits:** one XFS project quota per customer covers all of its users' home folders and its project folder together (XFS lets several folders share one quota). **Default 150 GB per customer** (decided 2026-10-19), overridable per customer. A per-user cap inside that is possible if a customer asks. The hard limit is the most a customer can use; writing past it fails. An email warning goes out at 90%.
+- **Storage limits: 150 GB per customer by default** (decided 2026-10-19), overridable per customer. Writing past the limit fails. An email warning goes out at 90%.
+  - The limit is enforced and billed as an XFS **group quota** on the customer's group. Each user's only group is their customer's group, and project folders are setgid, so every file they create counts against it. A user can't move a file to a group they're not in.
+  - A project quota on its own isn't safe: a file's owner can change the file's project ID and escape both the limit and the bill. So the project quota on each customer's folders is kept only so that `df` shows their limit.
+  - User quotas give the per-user breakdown.
+  - Each user therefore belongs to exactly one customer. A person working for two customers gets two accounts.
+  - `/raiddrive` is mounted without quotas today. Turning them on needs an fstab change and a full unmount and mount (a remount silently ignores quota options), done while it's still empty.
+  - Tested weekly: changing a file's project ID or group doesn't move it out of the customer's limit or bill.
 - **Storage measurement:** every hour a collector records each user's and each customer's usage in the accounting database.
 - **Storage billing:** the month's **peak**, meaning the highest hourly reading, times the price per GB. The quota is only a ceiling; customers pay for what they actually used at the peak. Section 9 explains how this draws credits during the month.
 - Scratch space on compute nodes is wiped after each job and isn't billed separately.
 - **Monthly statement** per customer: compute by user plus peak storage, built from the same database.
 
 ## 5. Hiding the total disk space
-- With XFS project quotas, `df` and `quota` show a user **their customer's limit** as the size of the disk, not the 3.7 TB.
+- With a project quota on the customer's folders, `df` on a path inside them shows **their customer's limit** as the size of the disk, not the 3.7 TB. A plain `df` of the whole filesystem still lists 3.7 TB, and `quota` doesn't show project quotas to normal users. `mystorage` shows customers their real numbers.
 - Limitation: on the machine that physically holds the disks (anton today), a technical user can still read the raw disk sizes, for example with `lsblk`. Hiding them completely means customers log into a separate login node that only reaches storage over NFS (plan D6). The medium-size plan already needs that node within the year.
 - During the build we log in as a test customer and record exactly what is visible.
 - **Nodes and GPUs stay visible** (decided, Q2): customers can see with `sinfo` which nodes and GPUs exist and which are busy.
@@ -112,6 +120,8 @@ customers:
 ## 6. Mixed GPU and CPU nodes
 - Each node is one entry in `config/nodes.yml`: name, type, CPU sockets and cores, memory, GPU model and count, local scratch, and its per-GPU job size (section 7). Slurm's node list is generated from it.
 - Partitions by node type, starting with `gpu` and `cpu`. GPUs are registered with their model (`gpu:rtx5070ti`), so a job can ask for a model (`--gpus=rtx5070ti:2`), and each model can have its own price.
+- Billing weights can only be set per partition, so each GPU model gets its own partition once there's a second model (e.g. `gpu-5070ti`). A job can still say "any GPU" by listing several partitions.
+- These GPUs (Blackwell) need code built with CUDA 12.8 or newer, or shipped with PTX. Older PyTorch builds fail on them. The user guide says so, and the weekly test checks it.
 - Node features let jobs pick CPU type, memory size and so on (`--constraint`).
 - On dual-socket CPU nodes, a job's cores are kept on one socket where possible (cgroups plus CPU affinity).
 - A job can use several GPUs in one node; they talk over PCIe, since the 5070 Ti has no NVLink. Jobs spread across several nodes would need a much faster network than 10 Gb (for example 100 Gb InfiniBand). That isn't planned for now.
@@ -142,8 +152,9 @@ In practice each GPU's share has to be whole cores, because two customers never 
   - 5 cores is 10 threads, which clouds would call 10 vCPUs. That's within the usual range for GPU cloud offers (roughly 4–16 vCPUs per GPU). In GPU jobs the CPU mostly feeds data to the GPU, and 10 threads is enough for typical data loading.
   - The memory left over matters: the OS, the GPU driver and the file cache need it. If jobs could take every last GB, the node could freeze and take every job on it down.
 - Note: 20 GB of RAM per 16 GB GPU is lean for machine-learning work. A common rule of thumb is 1.5–2× the GPU's memory. All 8 memory slots already hold 32 GB sticks (DDR4-2133), so more RAM means replacing them. For example, 8× 64 GB DDR4-3200 = 512 GB is roughly 44 GB per GPU with 11 GPUs, and faster memory too (Linear COP-43). The per-GPU size would be raised then.
-- **Defaults:** a job gets the full per-GPU share unless it asks for less (`DefCpuPerGPU`, `DefMemPerGPU`). It can't ask for more. A job that needs more RAM takes more GPUs.
+- **Defaults:** a job gets the full per-GPU share unless it asks for less: `DefCpuPerGPU=10` (Slurm counts each hardware thread as a CPU, so 5 cores is 10) and `DefMemPerGPU=20G`. It can't ask for more. A job that needs more RAM takes more GPUs.
 - **Checked at submission:** Slurm has a "default memory per GPU" setting but no "maximum per GPU" one. A short `job_submit.lua` script (run by Slurm on every submission) therefore rejects oversized jobs with a clear message, e.g. "gpu partition: at most 5 cores and 20 GB per GPU". `EnforcePartLimits=ALL` rejects jobs that break partition limits at submission instead of leaving them queued forever.
+  - The script also checks changes to waiting jobs (`scontrol update`), rejects `--mem=0` and `--exclusive`, and handles every way of asking for GPUs. It does no file or network access, because Slurm runs it while holding its locks.
 - **Enforced while running:** cgroups hold each job to what it was given. A job that goes over its memory is killed and recorded as `OUT_OF_MEMORY`. It only sees its own GPUs.
 - **GPU nodes run GPU jobs only:** a job in `gpu` must ask for at least one GPU. Otherwise a CPU-only job could take the cores and memory and leave GPUs that nobody can use.
 - **Billing safety net:** `PriorityFlags=MAX_TRES` bills a job for the **largest share of the node** it holds, whether that's GPUs, cores or memory. With the fixed size per GPU this just equals the GPU count. It matters if we loosen the size later, and on CPU nodes: 1 core with all the RAM is billed as the whole node.
@@ -158,43 +169,48 @@ In practice each GPU's share has to be whole cores, because two customers never 
 - **Outcome:** final state (completed, failed, cancelled, timeout, out of memory, node failure) and exit code. A node failure triggers an automatic refund (plan D31).
 - **Actual use, sampled every 30 s** (`jobacct_gather/cgroup`): CPU time, peak and average RAM, disk read/write, for each job step.
 - **GPU use** from NVIDIA's NVML: GPU utilization and GPU memory per job (`gres/gpuutil`, `gres/gpumem`). Customers can see how well they used what they paid for, but we still charge for what was allocated (plan 12.1).
-- **GPU energy per job** (`acct_gather_energy/gpu`), so we know the electricity cost of each job and customer.
+- **Not GPU energy:** Slurm's GPU energy plugin only works with AMD's library, so it records nothing on NVIDIA cards. If we want electricity cost per job, a small sampler can record `nvidia-smi` power readings outside Slurm (later, optional).
 
 **Job scripts: kept 60 days, then deleted** (decided, Q5).
-- Slurm keeps job records forever and has no separate expiry for scripts. Scripts are therefore kept outside Slurm's database: when a job starts, a copy of its script goes into a root-only folder on anton, and a nightly cleanup deletes copies older than 60 days.
+- Slurm stores them itself (`AccountingStoreFlags=job_script`) and deletes them after 60 days (`PurgeJobScriptAfter=60days` in `slurmdbd.conf`). Customers can read their own with `sacct -B`.
+- The nightly database backups leave out the job-script table, so no copy outlives the 60 days.
 - The terms tell customers that scripts are kept for 60 days.
-- Tested: the copy exists, customers can't read it, and it's gone after day 60.
+- Tested: the script is stored, other customers can't read it, and it's gone after day 60.
 
 **Possible, but not recorded:**
 - **Environment variables** (`AccountingStoreFlags=job_env`). They often contain passwords and API tokens.
 - **Detailed time-series profiles** of every job (the HDF5 profiling plugin): lots of disk for little benefit.
-- **Whole-node power from the BMC** (IPMI): Slurm runs one energy source at a time, and GPU energy covers most of the power draw.
+- **Whole-node power from the BMC** (IPMI): possible later, if we want electricity cost per job.
 - **InfiniBand and Lustre counters:** we have neither.
 
 **Outside Slurm:** nothing records what happens inside a job (the commands, files or network traffic). Logins (who, when and from which IP) and every admin action are logged (plan section 15).
 
 ## 9. Prices and credits
 ### Prices
-- `config/rates.yml` is the **default price list**: per GPU-hour by GPU model, per CPU-core-hour, and per GB-month of storage.
+- `config/rates.yml` is the **default price list**: per GPU-hour by GPU model, per CPU-core-hour (Slurm counts threads; the charging script converts), and per GB-month of storage. Amounts are stored as whole numbers of the smallest unit (D40), never as floating point.
 - A customer can have its own prices under `rates:` in `customers.yml` (section 2). Anything not listed there comes from the default list. Alternatively, a customer gets `discount_percent: 15` off the whole default list. Where a customer has both, their own `rates:` win for the items listed.
 - Prices have start dates. A job is charged at the prices in effect when it started. Changing a default price doesn't affect a customer who has their own price for that item. The statement shows the price used on every line.
-- Slurm only measures resource units, the same for everyone. Prices are applied by our charging script, and each customer's Slurm limit is worked out from their balance at their own prices.
+- Slurm only measures resource units, the same for everyone. Slurm stores them as whole numbers, so the weights are integers. On douglas1, 1 unit is a tenth of one GPU's share (`TRESBillingWeights=CPU=1,Mem=0.5G,GRES/gpu=10`), so a 1-GPU job (10 threads, 20 GB) is 10 units whichever share is largest. Prices are applied by our charging script.
 
 ### Credits
 The full design is in plan section 12.2. In short:
 - Customers buy credits up front. An append-only **ledger** is the money record. Every top-up, job charge, refund, adjustment and expiry is one entry, and the balance is their sum.
-- **Slurm enforces the balance.** Each customer gets a QOS (a Slurm limit group) with `Flags=NoDecay` and `GrpTRESMins=billing=<balance>`, plus `AccountingStorageEnforce=associations,limits,qos,safe`.
+- **Slurm enforces the balance.** Each customer gets a QOS (a Slurm limit group) with `Flags=NoDecay`, plus `AccountingStorageEnforce=associations,limits,qos,safe`.
+  - Slurm compares the limit with the QOS's lifetime usage. So every few minutes the sync sets `GrpTRESMins=billing=` to **usage so far + what the balance still buys − what running jobs have used but not yet been charged**. Usage is never reset. If Slurm's state is ever lost, the next sync recomputes the limit from the ledger.
+  - The balance is converted to units at the customer's highest price per unit, so a mix of partitions can't overspend.
   - "NoDecay" means used credits never come back on their own. Fair-share scheduling still works normally, because it uses a separate measure that does decay.
   - "safe" means a job only starts if the balance covers its whole time limit.
   - When the balance runs out, new jobs wait with a clear reason. Running jobs get a 10-minute grace period (below).
-- **Storage draws credits as the month's peak rises.** Each hourly reading above the month's previous peak charges the difference, so by month end the storage charge equals peak × price, with no surprise bill.
+- **Running jobs are charged every hour**, and finally when they end. The balance stays close to real time.
+- **Storage draws credits as the month's peak rises.** Each hourly reading above the month's previous peak charges the difference, so by month end the storage charge equals peak × price, with no surprise bill. The first reading each month charges the full current use, because each month's peak starts from zero. A storage price change takes effect on the 1st of the following month.
+- **Charges are keyed on Slurm's database record ID** (`DBIndex`, read with `sacct -D`), not the job ID. A requeued job keeps its ID, and IDs restart if the controller's state is lost. Each run rescans several days back, in case records reached the database late.
 - Low-balance emails at 20% and 5%.
-- **At zero balance** (decided, Q6): jobs stop. Files stay and storage keeps charging, so the balance can go negative for storage only. After 30 days negative, with email warnings before then, the files are deleted.
+- **At zero balance** (decided, Q6): jobs stop. Files stay and storage keeps charging. The balance can go slightly negative, but only through storage and the 10-minute grace; the next top-up covers that first. Starting a job never overdraws (plan D41). After 30 days negative, with email warnings, an admin deletes the files with a confirmed command (`./cluster customer purge`). It's never automatic.
 
 ### Stopping a running job early
 This covers running out of credits, emergency maintenance and, later, preemption.
 - With the "safe" rule a job only starts if the balance covers its whole time limit, so running out mid-job is rare. It can still happen when storage charges or an expiry lower the balance while a job runs.
-- **Our script stops the job, not Slurm.** If Slurm's own limit is reached while jobs run, Slurm kills them immediately. So the sync never sets the Slurm limit below what running jobs need, and running out mid-job is handled by the grace step.
+- **Our script stops the job, not Slurm.** With `safe`, Slurm never kills a running job over a limit, even if the limit drops after the job started. So a job that outlives the balance keeps running until the grace step shortens it.
 - **Grace step: 10 minutes** (decided 2026-10-19). The job's time limit is shortened to "now + 10 minutes" (`scontrol update JobId=… TimeLimit=…`), and the customer gets an email. Slurm's normal end-of-job sequence then takes over.
 - **Signals (the warning to the code):**
   - At the end of the time limit, Slurm sends `SIGTERM` ("stop now and save your work"), waits `KillWait` (set to 60 s), then sends `SIGKILL` (forced stop).
@@ -211,7 +227,7 @@ This covers running out of credits, emergency maintenance and, later, preemption
 - When a batch expires, whatever is left in it becomes an `expiry` entry in the ledger. Customers get a warning 30 days before, and statements show each batch and its expiry date.
 - Edge cases, each with a test:
   - A charge bigger than the soonest batch takes the rest from the next one.
-  - A job still running when a batch expires: what it will owe is held back from that batch until it finishes.
+  - A job still running when a batch expires has already paid for its earlier hours from that batch (hourly charging); later hours come from the next batch.
   - A refund comes back as a new batch valid 12 months.
   - Expiry happens at midnight UTC on the date shown.
   - The Slurm limit drops the moment a batch expires.
@@ -225,7 +241,7 @@ All of it is the customer's own data only. Each command takes `--json`.
 - `prices`: the customer's prices now, and every past price with the dates it applied, marked as their own price or the default list.
 - `mystorage`: current use, the month's peak so far, the limit, and what that peak costs.
 - **Monthly statement** by email on the 1st.
-- **Managers:** users marked `role: manager` in `customers.yml` see all of their customer's usage and charges. Other users see only their own.
+- **Managers:** users marked `role: manager` in `customers.yml` see all of their customer's usage and charges. Other users see only their own. Managers aren't Slurm "coordinators", which could change limits and cancel jobs.
 - These commands go through a small read-only helper that knows who's calling and returns only that caller's data. Customers never read the database directly.
 - A web page can come later (plan D26).
 
@@ -251,9 +267,9 @@ All of it is the customer's own data only. Each command takes `--json`.
    - **isolation:** can't see the other test customer's jobs, files or processes; no sudo; can't log into a node without a running job; `df` shows only their own limit
    - **limits:** an oversized job is rejected; a job over its memory is killed; a job sees only its own GPUs; a CPU-only job in `gpu` is rejected
    - **credits:** a job doesn't start at zero balance, or if its time limit wouldn't fit the balance; charges match the expected amount to the cent
-   - **storage:** writing past the quota fails; the hourly collector recorded a reading
-   - **GPUs:** a short CUDA test on every GPU
-   - **access:** admin login from outside the VPN is refused
+   - **storage:** writing past the quota fails; changing a file's project ID or group doesn't move it out of the customer's limit or bill; the hourly collector recorded a reading
+   - **GPUs:** a short CUDA test on every GPU, built with CUDA 12.8+
+   - **access:** password login is refused; once the VPN is in place, admin login from the upstream network is refused
    - **network:** a job on a compute node can't reach the internet, the office network, the BMC or the admin proxy
    - **backups:** last night's database dump exists and restores into a scratch database
 3. **Each SOP's own checks:** every SOP ends with verification steps, and they're added to the live suite. The suite grows with the cluster.
@@ -292,3 +308,5 @@ Every routine admin task is a `./cluster` command. Each is plain code (Python pl
 - ~~Q5. Store job scripts?~~ → **decided:** yes, 60 days (section 8).
 - ~~Q6. Files at zero balance?~~ → **decided:** kept and charged; deleted after 30 days negative (section 9).
 - ~~Q7. Credit expiry~~ → **decided:** 12 months, soonest-expiring first; no free trials (section 9).
+- **Q8.** A separate login host for customers before the first customer (at minimum a VM on anton)? Today customers would log into anton, which holds the money records, every key and the admin tools. The review rates this the biggest risk.
+- **Q9.** Keep customers' names and emails encrypted in the repo (Ansible Vault)? Today they'd be plain text in `customers.yml`, pushed to GitHub.

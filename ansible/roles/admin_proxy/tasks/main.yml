@@ -1,0 +1,46 @@
+# Admin-only web proxy on anton (SOP-103). Compute nodes have no route to the internet; root and
+# admin accounts there reach the web through this proxy, and every request is logged.
+# Customer accounts on the nodes are blocked from it by the node's own firewall (SOP-104).
+- name: Install squid
+  ansible.builtin.dnf:
+    name: squid
+    state: present
+  register: squid_package
+
+# The tasks below need squid installed. In a preview of the first run it isn't yet, so they wait.
+- name: Squid settings
+  ansible.builtin.template:
+    src: squid.conf.j2
+    dest: /etc/squid/squid.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: /usr/sbin/squid -k parse -f %s
+  notify: Restart squid
+  when: not (ansible_check_mode and squid_package is changed)
+
+- name: Folder for squid's systemd settings
+  ansible.builtin.file:
+    path: /etc/systemd/system/squid.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Start squid after the cluster network is up, and restart it if it stops
+  ansible.builtin.copy:
+    src: squid-cluster.conf
+    dest: /etc/systemd/system/squid.service.d/cluster.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart squid
+
+- name: Run squid now and at boot
+  ansible.builtin.systemd:
+    name: squid
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and squid_package is changed)

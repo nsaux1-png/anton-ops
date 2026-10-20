@@ -1,17 +1,23 @@
 # The machines in the cluster. Ansible reads this file as its inventory (./cluster passes it with -i).
-# Groups say what each machine is; cluster_ip is its address on the cluster network (172.16.50.0/24).
+# Groups say what each machine is; cluster_ip is its address on the cluster network.
 # Hardware details for Slurm get added here when the Slurm role is built.
 all:
   vars:
     ansible_python_interpreter: /usr/bin/python3   # Rocky 9's system Python 3.9, which has the dnf and SELinux bindings
+    cluster_network: 172.16.50.0/24
+    admin_proxy_host: anton         # admin-only web proxy for the compute nodes (SOP-103)
+    admin_proxy_port: 3128
+    customer_uid_min: 2000          # accounts from this UID up are customers; admins are 1000-1999 (plan section 6)
   children:
     head:
       hosts:
         anton:
           ansible_connection: local   # ./cluster runs on anton
           cluster_ip: 172.16.50.1
-    gpu_nodes:
-      hosts:
-        douglas1:
-          ansible_host: 172.16.50.11
-          cluster_ip: 172.16.50.11
+    compute:
+      children:
+        gpu_nodes:
+          hosts:
+            douglas1:
+              ansible_host: 172.16.50.11
+              cluster_ip: 172.16.50.11

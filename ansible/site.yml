@@ -1,6 +1,19 @@
-# Everything ./cluster apply sets up. Roles run in the order listed.
+# Everything ./cluster apply sets up. Plays and roles run in the order listed.
 - name: Every machine
   hosts: all
   become: true
   roles:
     - hosts
+
+- name: Head node
+  hosts: head
+  become: true
+  roles:
+    - firewall
+    - admin_proxy
+
+- name: Compute nodes
+  hosts: compute
+  become: true
+  roles:
+    - egress

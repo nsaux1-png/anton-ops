@@ -1,0 +1,34 @@
+# anton's firewall (SOP-103). The upstream network stays in the "public" zone. Traffic from the
+# cluster network gets its own zone, "cluster", so cluster services never open on the upstream side.
+- name: Create the cluster zone
+  ansible.posix.firewalld:
+    zone: cluster
+    state: present
+    permanent: true
+  register: cluster_zone
+
+- name: Reload firewalld so the new zone is active
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+  when: cluster_zone is changed and not ansible_check_mode
+
+# The tasks below need the zone. In a preview of the first run it doesn't exist yet, so they wait.
+- name: Traffic from the cluster network uses the cluster zone
+  ansible.posix.firewalld:
+    zone: cluster
+    source: "{{ cluster_network }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  when: not (ansible_check_mode and cluster_zone is changed)
+
+- name: Services open to the cluster network
+  ansible.posix.firewalld:
+    zone: cluster
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ cluster_zone_services }}"
+  when: not (ansible_check_mode and cluster_zone is changed)

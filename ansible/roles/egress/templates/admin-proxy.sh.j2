@@ -1,0 +1,9 @@
+# Managed by Ansible (ansible/roles/egress), SOP-103.
+# Admin accounts reach the web through {{ admin_proxy_host }}'s proxy. Customer accounts are blocked
+# from it (SOP-104), so their shells don't get it.
+if [ "$(id -u)" -lt {{ customer_uid_min }} ]; then
+    export http_proxy=http://{{ admin_proxy_host }}:{{ admin_proxy_port }}
+    export https_proxy=$http_proxy HTTP_PROXY=$http_proxy HTTPS_PROXY=$http_proxy
+    export no_proxy={{ (['localhost', '127.0.0.1'] + groups['all'] | sort) | join(',') }}
+    export NO_PROXY=$no_proxy
+fi

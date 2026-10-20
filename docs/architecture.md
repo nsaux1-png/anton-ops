@@ -36,6 +36,6 @@ Status: planned. Nothing below is installed yet unless marked otherwise.
 ## Source of truth and automation
 
 - Ansible playbooks, wrapped by a `./cluster` command (`add-node`, `add-user`, `apply`, `billing-report`, ...).
-- Data files define the cluster: `nodes.yml`, `users.yml`, billing rates.
+- Data files define the cluster: `config/nodes.yml`, `config/customers.yml`, `config/rates.yml`.
 - User and group IDs are assigned centrally and are identical on every machine.
 - Every run is logged with its timestamp, operator, git commit and output.

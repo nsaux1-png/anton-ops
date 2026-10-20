@@ -1,0 +1,3 @@
+# Replaces the rules in one step (see the rules file), so there's no moment without them.
+- name: Load the egress rules
+  ansible.builtin.command: /usr/sbin/nft -f /etc/nftables/cluster-egress.nft

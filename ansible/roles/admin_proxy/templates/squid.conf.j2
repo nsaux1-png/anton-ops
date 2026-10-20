@@ -1,0 +1,29 @@
+# Managed by Ansible (ansible/roles/admin_proxy), SOP-103. Local edits are overwritten.
+# Admin-only web proxy for the compute nodes. It listens on the cluster network only.
+# Customer accounts on the nodes can't reach it: the nodes' own firewall blocks them (SOP-104).
+
+http_port {{ cluster_ip }}:{{ admin_proxy_port }}
+visible_hostname {{ inventory_hostname }}
+
+acl cluster_net src {{ cluster_network }}
+acl SSL_ports port 443
+acl Safe_ports port 80 443
+acl CONNECT method CONNECT
+
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+http_access allow cluster_net
+http_access deny all
+
+# A pass-through proxy: nothing is cached.
+cache deny all
+
+# Every request is logged with local time and the machine it came from.
+logformat cluster %tl %>a %Ss/%03>Hs %<st %rm %ru
+access_log stdio:/var/log/squid/access.log cluster
+
+# Don't pass the nodes' addresses on to websites.
+forwarded_for delete
+via off
+
+coredump_dir /var/spool/squid

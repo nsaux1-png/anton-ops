@@ -1,0 +1,23 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible (ansible/roles/egress), SOP-104. Local edits are overwritten.
+# Customer accounts (UID {{ customer_uid_min }} and up) on this node can reach only the cluster network:
+# not the internet, the office network, the BMC, or the admin proxy on {{ admin_proxy_host }}.
+# Root and admin accounts aren't limited. Packets not sent by a customer's process pass untouched.
+
+# Replace the whole table in one step, so the rules are never half-loaded.
+table inet cluster_egress
+delete table inet cluster_egress
+
+table inet cluster_egress {
+	chain output {
+		type filter hook output priority filter; policy accept;
+		meta skuid >= {{ customer_uid_min }} jump customer
+	}
+
+	chain customer {
+		oif "lo" accept
+		ip daddr {{ hostvars[admin_proxy_host].cluster_ip }} tcp dport {{ admin_proxy_port }} counter reject with tcp reset
+		ip daddr {{ cluster_network }} accept
+		counter reject with icmpx type admin-prohibited
+	}
+}

@@ -46,7 +46,7 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] ~~anton as gateway (NAT)~~ Dropped 2026-10-19: compute nodes get no internet. Instead: the admin proxy and customer network limits (Next up), plus a test that a job on douglas1 can't reach the internet.
 - [ ] Firewall zones on anton (upstream vs cluster network).
 - [ ] NFS: export from `/raiddrive` (home + shared software) to the cluster network; mount on nodes.
-- [ ] `users.yml` with fixed UID/GIDs, applied to every machine.
+- [ ] `config/customers.yml` with generated `uids.yml` (fixed UIDs/GIDs), applied to every machine.
 - [ ] munge key, distributed to every node.
 
 ## 5. GPU node (Claude)
