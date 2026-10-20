@@ -4,9 +4,10 @@
 Tick items off here and commit, so the history shows when each was done.
 
 ## Next up (2026-10-19): NVIDIA driver on douglas1
-- [ ] **Claude:** Ansible + `./cluster` with run logging (first item of section 4). Every following step runs through it.
-- [ ] **Claude:** anton as gateway, so douglas1 can download packages (section 4).
-- [ ] **Claude:** Read-only checks on douglas1: Secure Boot, BIOS (Above 4G decoding, Resizable BAR), kernel headers, which memory sticks are installed (for a possible RAM upgrade).
+- [x] **Claude:** Ansible + `./cluster` with run logging (2026-10-19, SOP-001, SOP-101). `/etc/hosts` managed too (SOP-102).
+- [ ] **Claude:** Package mirror on anton (D46): dated snapshots of Rocky BaseOS/AppStream, EPEL and NVIDIA's repo on `/raiddrive`, served over HTTP to the cluster network only. douglas1's dnf uses only the mirror; douglas1 stays without internet.
+- [ ] **Claude:** Read-only checks on douglas1: Secure Boot, BIOS (Above 4G decoding, Resizable BAR), kernel headers.
+- [x] **Claude:** douglas1's memory sticks: 8× 32 GB DDR4-2133, all 8 slots full (2026-10-19). Upgrade in Linear COP-43.
 - [ ] **Claude:** SOP + Ansible role for the NVIDIA driver; install on douglas1; `nvidia-smi` shows all 10 GPUs; persistence mode on.
 - [ ] **Claude + you:** Full-load test of all 10 GPUs (D47), watching temperatures and power.
 
@@ -33,13 +34,14 @@ Tick items off here and commit, so the history shows when each was done.
 - [x] GitLab removed from anton: `~/.ssh/id_ed25519_gitlab` key pair deleted, `gitlab.com` dropped from `~/.ssh/config` and `known_hosts` (2026-10-19). The key can no longer be used, but still delete it from the GitLab account (item above).
 
 ## 3b. Hardware
+- [ ] **you:** RAM for douglas1 (Linear COP-43). All 8 slots hold 32 GB DDR4-2133 sticks, so this means replacing them, e.g. 8× 64 GB DDR4-3200 = 512 GB.
 - [ ] **you:** Buy a 10 Gb card for anton plus a Cat6a cable to douglas1 (Linear COP-42). Then **Claude:** configure the link and move cluster traffic onto it.
 
 ## 4. Foundations (Claude, once sudo is in place)
-- [ ] Install Ansible; set up the playbook skeleton, inventory (`nodes.yml`), and the `./cluster` command with run logging.
-- [ ] Manage `/etc/hosts` on all machines from the inventory.
+- [x] Install Ansible; set up the playbook skeleton, inventory (`nodes.yml`), and the `./cluster` command with run logging (2026-10-19, SOP-001, SOP-101).
+- [x] Manage `/etc/hosts` on all machines from the inventory (2026-10-19, SOP-102).
 - [ ] Time sync: anton as chrony server, nodes as clients.
-- [ ] anton as gateway: IP forwarding plus NAT on `eno1`, cluster network outbound only. Verify douglas1 reaches the internet.
+- [ ] ~~anton as gateway (NAT)~~ Dropped 2026-10-19: compute nodes get no internet. Instead: the package mirror (Next up), plus a test that a job on douglas1 can't reach the internet.
 - [ ] Firewall zones on anton (upstream vs cluster network).
 - [ ] NFS: export from `/raiddrive` (home + shared software) to the cluster network; mount on nodes.
 - [ ] `users.yml` with fixed UID/GIDs, applied to every machine.

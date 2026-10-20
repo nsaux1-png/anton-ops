@@ -9,7 +9,7 @@ Status: planned. Nothing below is installed yet unless marked otherwise.
 - **Slurm accounting** (`slurmdbd` + MariaDB): records every job (user, account, CPUs, GPUs, memory, time). This is the basis for billing.
 - **Login point:** users SSH into anton and submit jobs from there. They do not log into compute nodes directly.
 - **Shared storage:** the 2×4 TB RAID1 mirror (`/dev/md0`, XFS) is exported over NFS for `/home` and shared software.
-- **Gateway:** compute nodes reach the internet through anton (outbound NAT only). Nothing outside can reach the compute nodes.
+- **No internet for compute nodes** (2026-10-19): anton doesn't forward traffic, so the nodes can't reach the internet or the upstream LAN, and nothing outside can reach them. Nodes get packages from anton's mirror and time from anton.
 - **Time server** (chrony): munge, Slurm's authentication, fails if clocks drift between machines.
 - **Ansible control node:** this repo lives here and configures every machine, including anton itself.
 
@@ -22,7 +22,7 @@ Status: planned. Nothing below is installed yet unless marked otherwise.
 
 | Network | Purpose | anton | douglas1 |
 |---|---|---|---|
-| 192.168.5.0/22 | Upstream LAN and internet, SSH from outside | 192.168.5.200 (`eno1`) | none |
+| 192.168.4.0/22 | Upstream LAN and internet, SSH from outside | 192.168.5.200 (`eno1`) | none |
 | 172.16.50.0/24 | Cluster network | 172.16.50.1 (`eno2`) | 172.16.50.11 (`enp66s0f1np1`) |
 | 172.16.99.0/24 | Internal link between douglas1 and its own BMC (virtual USB network). Not part of the cluster; left alone. | none | 172.16.99.201 |
 

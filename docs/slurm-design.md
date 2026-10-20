@@ -1,6 +1,14 @@
 # Slurm system design
 
-**Status: DRAFT, 2026-10-19 (fifth round).** Built from the user's requirements given that day. This page is the overall shape; [`plan.md`](plan.md) has the details of each piece.
+**Status: DRAFT, 2026-10-19 (sixth round).** Built from the user's requirements given that day. This page is the overall shape; [`plan.md`](plan.md) has the details of each piece.
+
+## Changes by round (2026-10-19)
+1. First draft from requirements 1–6.
+2. Job sizes, what's recorded per job, credits, ready-made packages. Decided: usernames, nodes visible to customers.
+3. Sizes for 11 and 12 GPUs, prices with overrides, credit expiry, tests. Decided: 60-day job scripts, files at zero balance.
+4. Decided: 5 cores + 20 GB per GPU, 12-month expiry, no free trials. Added: admin commands as code.
+5. Decided: 10-minute grace period with signals, 150 GB per customer on `/raiddrive`, VPN later. Added: what customers can see.
+6. Decided: no internet from compute nodes. Found: douglas1's memory slots are full, so more RAM means new sticks (COP-43).
 
 ## Requirements (user, 2026-10-19)
 1. Track usage per user.
@@ -17,6 +25,7 @@
 12. Simple, repeatable admin commands (credits, software, maintenance and so on) that are real code, not AI. They can be run by hand, from cron, or by an agent.
 13. A job that's still running when its customer runs out of credits gets a grace period, with a warning signal to the code before it's stopped.
 14. Customers can see their own usage, charges, prices and price history.
+15. No direct internet from the compute nodes.
 
 ## 1. Tracking per user
 - Slurm's accounting (`slurmdbd` + MariaDB on anton) records every job and keeps the records forever. Section 8 lists exactly what's recorded.
@@ -70,6 +79,11 @@ customers:
   - Root can't log in over SSH at all.
   - Customers log in from the internet with SSH keys only, so a stolen customer key gives no route to an admin account.
   - Before direct admin logins are switched off, the VPN login is tested and a way back in is checked (a screen and keyboard on anton, or its BMC).
+- **No internet from compute nodes** (decided 2026-10-19).
+  - anton doesn't forward traffic, so a job can't reach the internet or the office network, and nothing outside can reach a node.
+  - Nodes get packages from a mirror on anton (plan D46) and time from anton.
+  - Customers download data, code and Python packages on anton (the login node) into their shared folders, and their jobs use them from there.
+  - A weekly test checks that a job can't get out.
 - On the upstream network, anton offers only SSH (and later the VPN port). Slurm, munge, the database and NFS listen only on the cluster network.
 - The commands customers get (`credits`, `myusage`, `mystorage`, `prices`) only show the caller's own data (section 9).
 - **Usernames: two letters + two digits** (e.g. `kx47`), random, unrelated to the person's name (decided, Q1).
@@ -124,7 +138,7 @@ In practice each GPU's share has to be whole cores, because two customers never 
   - With 10 GPUs, 6 cores and 51 GB stay unused. Unsold capacity costs nothing; the node just has headroom.
   - 5 cores is 10 threads, which clouds would call 10 vCPUs. That's within the usual range for GPU cloud offers (roughly 4–16 vCPUs per GPU). In GPU jobs the CPU mostly feeds data to the GPU, and 10 threads is enough for typical data loading.
   - The memory left over matters: the OS, the GPU driver and the file cache need it. If jobs could take every last GB, the node could freeze and take every job on it down.
-- Note: 20 GB of RAM per 16 GB GPU is lean for machine-learning work. A common rule of thumb is 1.5–2× the GPU's memory. A RAM upgrade would allow more, so check what's installed (todo, next up).
+- Note: 20 GB of RAM per 16 GB GPU is lean for machine-learning work. A common rule of thumb is 1.5–2× the GPU's memory. All 8 memory slots already hold 32 GB sticks (DDR4-2133), so more RAM means replacing them. For example, 8× 64 GB DDR4-3200 = 512 GB is roughly 44 GB per GPU with 11 GPUs, and faster memory too (Linear COP-43). The per-GPU size would be raised then.
 - **Defaults:** a job gets the full per-GPU share unless it asks for less (`DefCpuPerGPU`, `DefMemPerGPU`). It can't ask for more. A job that needs more RAM takes more GPUs.
 - **Checked at submission:** Slurm has a "default memory per GPU" setting but no "maximum per GPU" one. A short `job_submit.lua` script (run by Slurm on every submission) therefore rejects oversized jobs with a clear message, e.g. "gpu partition: at most 5 cores and 20 GB per GPU". `EnforcePartLimits=ALL` rejects jobs that break partition limits at submission instead of leaving them queued forever.
 - **Enforced while running:** cgroups hold each job to what it was given. A job that goes over its memory is killed and recorded as `OUT_OF_MEMORY`. It only sees its own GPUs.
@@ -237,6 +251,7 @@ All of it is the customer's own data only. Each command takes `--json`.
    - **storage:** writing past the quota fails; the hourly collector recorded a reading
    - **GPUs:** a short CUDA test on every GPU
    - **access:** admin login from outside the VPN is refused
+   - **network:** a job on a compute node can't reach the internet or the office network
    - **backups:** last night's database dump exists and restores into a scratch database
 3. **Each SOP's own checks:** every SOP ends with verification steps, and they're added to the live suite. The suite grows with the cluster.
 
@@ -255,6 +270,7 @@ Every routine admin task is a `./cluster` command. Each is plain code (Python pl
 | Storage | `storage usage [<customer>]` |
 | Nodes and maintenance | `node status`, `node drain/resume <node> --reason …`, `node reboot <node>` (drain, wait for jobs, reboot, run checks, resume), `maintenance start/end`, `upgrade <node>` (OS, driver or Slurm; one node at a time) |
 | Software | `software list`, `software install <name> <version>` (from a recipe in the repo, as an Lmod module), `software remove <name> <version>` |
+| Packages | `mirror sync` (take a new dated snapshot), `mirror use <date>` (point the nodes at a snapshot) |
 | Health, tests, backups | `health` (one-screen status), `test [--quick\|--live]`, `backup run`, `backup verify` |
 
 **Rules for every command**

@@ -12,3 +12,4 @@
 - [ ] **Remove `/etc/sudoers.d/90-papaya-temp`** from both machines when the build is done.
 - [x] **GitLab:** gitlab.com, private project `nicolas478/anton-ops` (2026-10-18).
 - [x] **Moved to GitHub:** private repo `nsaux1-png/anton-ops` (2026-10-19).
+- [ ] **Miniconda in papaya's home on anton and douglas1** (found 2026-10-19): its Python 3.14 comes first in papaya's PATH. It wasn't installed by this project, and our tools use `/usr/bin/python3` instead. Keep it or remove it?

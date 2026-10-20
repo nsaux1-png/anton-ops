@@ -87,3 +87,10 @@ Every routine admin task (credits, users, software, maintenance, reports) is a `
 - **Customers see their own** usage, per-job charges, credits with expiry dates, prices and price history, and storage. Users marked as managers see their whole customer.
 
 **Why:** the user, 2026-10-19.
+
+## 2026-10-19: No internet from compute nodes (plan D46)
+- **Compute nodes get no internet.** anton doesn't forward traffic: no NAT, and IP forwarding stays off. This replaces the earlier plan for anton to be a NAT gateway. Jobs can't reach the internet or the office network.
+- **D46: packages come from a local snapshot mirror on anton**, served to the cluster network only. This covers Rocky BaseOS/AppStream, EPEL, NVIDIA's repo and our Slurm builds.
+- Customers download data and software on anton, the login node, into their shared folders.
+
+**Why:** the user, 2026-10-19: "i don't want ppl to be able to directly use the internet from douglas". The mirror was already the recommended package source, and it also makes every node install identical versions.

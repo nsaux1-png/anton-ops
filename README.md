@@ -4,7 +4,7 @@ Home: https://github.com/nsaux1-png/anton-ops (private). Until 2026-10-19 it liv
 
 Configuration, scripts and records for our Slurm cluster.
 
-- **anton** is the head node: Slurm controller, accounting database, login point, shared storage, and gateway for the cluster network.
+- **anton** is the head node: Slurm controller, accounting database, login point, shared storage, and package mirror for the cluster network (compute nodes have no internet).
 - **douglas1** is the first compute node (10 GPUs). More GPU and dual-socket CPU nodes will follow.
 
 Users log into anton and submit jobs. Every job is recorded in Slurm's accounting database, and that record is what we bill from.
@@ -28,5 +28,11 @@ Users log into anton and submit jobs. Every job is recorded in Slurm's accountin
 | `docs/todo.md` | The to-do list |
 | `docs/open-questions.md` | Things we still need to find out or decide |
 | `docs/ops-log/` | Dated records of work done on the machines |
+| `docs/sop/` | Standard operating procedures (SOP-001 …), with a template |
+| `cluster` | The `./cluster` command for all admin work (SOP-001) |
+| `config/nodes.yml` | The machines; Ansible reads it as its inventory |
+| `ansible/` | Ansible config, `site.yml` and roles |
+| `scripts/bootstrap/` | One-time scripts for steps that come before Ansible (SOP-101) |
+| `tests/` | Tests for our own code: `/usr/bin/python3 -m unittest discover -s tests -v` |
 
-The Ansible code and the `./cluster` command will be added here as they are built.
+`./cluster --help` lists the commands.
