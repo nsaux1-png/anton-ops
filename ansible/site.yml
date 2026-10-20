@@ -34,6 +34,7 @@
     - slurm_accounts
     - billing
     - backup
+    - test_schedule
 
 - name: Compute nodes
   hosts: compute

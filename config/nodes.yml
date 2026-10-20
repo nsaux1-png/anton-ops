@@ -11,6 +11,8 @@ all:
     time_server: anton              # compute nodes take their time from here (SOP-105)
     upstream_network: 192.168.4.0/22   # anton's upstream (office) network, shared with other machines
     storage_server: anton           # exports /raiddrive/cluster, mounted as /cluster everywhere (SOP-130)
+    test_runner: papaya             # the admin account the weekly tests run as (SOP-191)
+    test_repo: /home/papaya/cluster # the repo they run from
   children:
     head:
       hosts:

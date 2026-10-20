@@ -1,0 +1,40 @@
+# The whole test suite every week (SOP-191): code tests and live tests, run by an admin account from
+# the repo on anton, logged like any ./cluster run. Results by email come with alerts (plan D34).
+- name: Weekly test run
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - name: cluster-tests-weekly.service
+      content: |
+        # Managed by Ansible (ansible/roles/test_schedule), SOP-191.
+        [Unit]
+        Description=The cluster's whole test suite (SOP-191)
+        After=slurmctld.service mariadb.service
+        [Service]
+        Type=oneshot
+        User={{ test_runner }}
+        WorkingDirectory={{ test_repo }}
+        ExecStart={{ test_repo }}/cluster test
+    - name: cluster-tests-weekly.timer
+      content: |
+        # Managed by Ansible (ansible/roles/test_schedule), SOP-191.
+        [Timer]
+        OnCalendar=Sun *-*-* 03:00:00
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  register: test_units
+
+- name: Run it every week from now on
+  ansible.builtin.systemd:
+    name: cluster-tests-weekly.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and test_units is changed)

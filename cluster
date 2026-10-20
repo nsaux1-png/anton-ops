@@ -231,6 +231,64 @@ def cmd_credits(args, log):
     return {0: EXIT_OK, 2: EXIT_REFUSED}.get(code, EXIT_FAILED)
 
 
+def cmd_health(args, log):
+    """One screen of everything that should be true (SOP-171). Exit code 1 if anything isn't."""
+    import datetime
+    import json
+    from clusterlib import health
+    sys.path.insert(0, os.path.join(REPO, "tests", "live"))
+    import helpers   # the live tests' way of running commands on each machine
+
+    now = datetime.datetime.now()
+    results = []
+
+    def add(area, check, outcome):
+        results.append((area, check, outcome[0], outcome[1]))
+
+    head = helpers.head()
+    reachable = {}
+    for host in helpers.hosts():
+        r = helpers.run(host, "true", timeout=20) if host != head else subprocess.CompletedProcess([], 0)
+        reachable[host] = r.returncode == 0
+        add(host, "reachable", (reachable[host], "yes" if reachable[host] else "no answer over SSH"))
+
+    def services(host, names):
+        for name in names:
+            state = helpers.run(host, f"systemctl is-active {name}").stdout.strip()
+            add(host, name, (state == "active", state))
+
+    services(head, health.HEAD_SERVICES)
+    for name in health.TIMERS:
+        out = helpers.run(head, f"systemctl show -p Result,ExecMainExitTimestamp {name}.service").stdout
+        props = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+        stamp = props.get("ExecMainExitTimestamp", "").strip()
+        last = None
+        if stamp and stamp != "n/a":
+            last = datetime.datetime.strptime(" ".join(stamp.split()[1:3]), "%Y-%m-%d %H:%M:%S")
+        add(head, f"{name} timer", health.timer_ok(name, props.get("Result", ""), last, now))
+    add(head, "RAID", health.raid_ok(helpers.run(head, "cat /proc/mdstat").stdout))
+    for mount in ("/", "/raiddrive"):
+        add(head, f"disk {mount}", health.disk_ok(helpers.run(head, f"df --output=pcent,target {mount} | tail -1").stdout))
+    days = helpers.run(head, "sudo ls /raiddrive/backups/daily 2>/dev/null").stdout.split()
+    add(head, "backups", health.backup_age_ok(sorted(days)[-1] if days else None, now))
+    ping = helpers.run(head, "scontrol ping").stdout
+    add(head, "Slurm controller", ("is UP" in ping, ping.strip().splitlines()[0] if ping.strip() else "no answer"))
+    nodes = [line for line in helpers.run(head, "sinfo -h -N -o '%N %T'").stdout.splitlines() if line.strip()]
+    add(head, "Slurm nodes", health.nodes_ok(nodes))
+    leap = helpers.run(head, "chronyc -n tracking | grep 'Leap status'").stdout.split(":")[-1].strip()
+    add(head, "time", (leap == "Normal", f"leap status {leap or 'unknown'}"))
+    for node in helpers.hosts("compute"):
+        if reachable.get(node):
+            services(node, health.NODE_SERVICES + (health.GPU_NODE_SERVICES if node in helpers.hosts("gpu_nodes") else []))
+
+    lines, ok = health.summary(results)
+    if args.json:
+        print(json.dumps([{"area": a, "check": c, "ok": o, "detail": d} for a, c, o, d in results], indent=2))
+    for line in lines:
+        log.say(line) if not args.json else log.write(line)
+    return EXIT_OK if ok else EXIT_FAILED
+
+
 def cmd_backup(args, log):
     """Backups on anton (SOP-181) and restore checks (SOP-301)."""
     code, _ = log.run(["sudo", "/usr/local/sbin/cluster-backup", args.action] + ([args.day] if args.day else []))
@@ -490,6 +548,10 @@ def build_parser():
     p.add_argument("action", choices=["topup", "grant", "adjust", "refund", "balance", "statement", "hourly"])
     p.add_argument("rest", nargs=argparse.REMAINDER)
     p.set_defaults(func=cmd_credits)
+
+    p = sub.add_parser("health", help="one screen of everything that should be true; exit code 1 if anything isn't")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_health)
 
     p = sub.add_parser("backup", help="backups: run (now), verify (restore into scratch databases and check), list")
     p.add_argument("action", choices=["run", "verify", "list"])
