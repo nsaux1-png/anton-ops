@@ -55,7 +55,7 @@ Then commit and push. Status as of 2026-10-19.
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
 | 5.1 | `config/customers.yml` and `uids.yml`; `./cluster user add/suspend/remove`, `apply`; test customers `c0001`/`c0002` with `zz` users | 141, 201 | | ✅ done on anton 2026-10-20 (douglas1 when it's back) |
-| 5.2 | fail2ban, root-owned customer SSH keys, hidden `/proc` (`ProtectProc=invisible`), home folder permissions, `0700` admin files | 142 | | ◐ root-owned keys, no customer passwords, hidden processes done on anton 2026-10-20; fail2ban and the admin password question (1.6) open |
+| 5.2 | fail2ban, root-owned customer SSH keys, hidden `/proc` (`ProtectProc=invisible`), home folder permissions, `0700` admin files | 142 | | ◐ root-owned keys, no customer passwords, hidden processes done on anton 2026-10-20; fail2ban done 2026-10-20; the admin password question (1.6) open |
 
 ## Phase 6: Slurm
 **Tests written in this phase:** CPU job, 1 GPU, several GPUs; oversized jobs and CPU-only jobs on a GPU node rejected, also through `scontrol update`; the memory limit kills; a job sees only its own GPUs; customers can't see other customers' jobs in `squeue`, `sacct` or `sreport`; no SSH into a node without a job; a job can't reach the internet; signals and the grace step; accounting records match what ran.
