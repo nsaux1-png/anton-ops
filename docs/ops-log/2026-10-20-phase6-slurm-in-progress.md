@@ -3,7 +3,7 @@
 ## Done
 - `./cluster build slurm` and `scripts/build/slurm-rpms.sh`, using version and checksum from `config/versions.yml`: Slurm 26.05.5, SHA-256 checked against SchedMD's GitHub release.
   - The first build failed: 26.05 needs `libcurl-devel`, which is now added.
-  - The second build was started in the background; its result is in the newest `/var/log/cluster-ops/*-build.log`.
+  - The second build compiled, but **the NVIDIA GPU plugin (`gpu_nvml.so`) was missing**: configure didn't find NVML at `/usr/local/cuda-13.0`. The script stopped before publishing, so nothing was published. Next: check the "nvml" lines in `/var/tmp/cluster-build/rpmbuild-26.05.5/build.log` and fix the `--with-nvml` path (e.g. `.../targets/x86_64-linux`). Log: `/var/log/cluster-ops/20261020-003156-build.log`.
 - The `nvidia_repo` role is applied to anton, which needs the NVML headers to build Slurm.
 - `job_submit.lua` (the GPU job-size rules) is written, with 13 code tests that pass.
 - `cluster-slurm-accounts` (customers.yml → Slurm accounts and limits) is written, with 8 code tests that pass.
