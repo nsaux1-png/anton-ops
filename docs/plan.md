@@ -71,7 +71,7 @@ How to read this:
 - **D8. Node naming scheme.** *Recommended: keep personal names if that's your convention, but keep the type in the inventory (Slurm doesn't care).* Or switch to `gpu01`/`cpu01`.
 - **D9. What is 172.16.99.0/24** on douglas1's USB network interface? **→ Answered 2026-10-19: the BMC's virtual USB link, internal to the server. Left alone.**
 - **D10. How customers reach the cluster:** (a) SSH directly from the internet to anton, (b) VPN first, then SSH. *Recommended: (a) with keys only and fail2ban to start, (b) if a customer requires it.*
-- **D11. Is the 192.168.5.0/22 upstream network shared with other office machines?** Affects firewall rules.
+- **D11. Is the 192.168.4.0/22 upstream network shared with other office machines?** Affects firewall rules. **→ Answered 2026-10-19: yes, anton's switch has other machines on it. Nothing upstream is trusted; see [`slurm-design.md`](slurm-design.md) Q3 for admin logins.**
 
 ---
 
@@ -201,10 +201,15 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 ## 10. GPU stack
 
 **Proposal**
-- **NVIDIA driver** (open kernel modules, required for RTX 50-series), pinned to a tested version in the repo. Kernel and driver are updated together in the maintenance window.
+- **Checks before the driver install** (read-only, on each GPU node):
+  - Secure Boot state. If it's on, the driver's kernel module must be signed and the signing key enrolled.
+  - BIOS: "Above 4G decoding" and "Resizable BAR" on.
+  - Kernel headers for the running kernel are available.
+- **NVIDIA driver** (open kernel modules, required for RTX 50-series), from NVIDIA's repo for RHEL 9, built with DKMS so it's rebuilt for each new kernel. It's pinned to a tested version in the repo. Kernel and driver are updated together in the maintenance window.
+- **Other hardware needs nothing extra.** The AMD EPYC CPUs, the Broadcom 10 Gb ports (`bnxt_en`), the NVMe disks and anton's LSI disk controller all use drivers built into Rocky's kernel.
 - **CUDA:** users bring their own through conda/pip/containers; the driver supports them. We also provide a few CUDA versions as modules for people compiling code.
 - **Containers:** Apptainer (the HPC-standard container runtime, runs without root), so customers can bring Docker images.
-- **GPU monitoring:** NVIDIA DCGM for per-GPU health and usage.
+- **GPU monitoring:** NVML/`nvidia-smi` for per-GPU health and usage. NVIDIA DCGM targets data-center GPUs and much of it isn't supported on GeForce cards, so test what it offers here before relying on it.
 - **Persistence mode** on, so GPUs don't reinitialize between jobs.
 - **Known limits of RTX 5070 Ti:** 16 GB memory each, no NVLink (GPUs talk over PCIe), no ECC memory. Fine for many workloads; not ideal for very large models across many GPUs. Customers should be told.
 
@@ -276,7 +281,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 - **D33. Invoicing:** which tool sends invoices and takes payment, and who reviews before it goes out? *Is there an accounting system (e.g. QuickBooks, Stripe) top-ups should come from?*
 - **D40. What 1 credit is worth:** a fixed money amount (e.g. 1 credit = $0.01), or 1 GPU-hour-equivalent? *Recommended: tie credits to money. Prices can then change without changing anyone's balance.*
 - **D41. Running out mid-job:** with the "must cover full time limit" rule a job can't overdraw by much. Do we also allow a small overdraft (grace) so jobs aren't blocked at e.g. 0.5 credits short? *Recommended: no overdraft at launch.*
-- **D42. Do credits expire?** *Recommended: after 12 months, stated in the terms. Expired credits are a ledger entry, not a silent deletion.*
+- **D42. Do credits expire?** *Recommended: after 12 months, stated in the terms. Expired credits are a ledger entry, not a silent deletion.* **→ 2026-10-19: the user wants expiry (e.g. 12 months). Design in [`slurm-design.md`](slurm-design.md) section 9 (Q7).**
 - **D43. Free trial credits** for new customers? How many?
 - **D44. Top-ups:** entered by an admin after payment is received, or automatic from a payment system (e.g. Stripe webhook)? *Recommended: admin-entered at launch; automate once volume justifies it.*
 - **D45. Ledger storage:** a table in the same MariaDB as Slurm accounting, or a separate database? *Recommended: same MariaDB server, separate database, backed up together.*
@@ -358,9 +363,9 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 ## 18. Build order (once the plan is agreed)
 
 1. **Foundations:** Ansible + repo layout + `./cluster` with logging; hosts, time, firewall, gateway; douglas1 gets internet; local package mirror (D46).
-2. **Storage:** `/raiddrive` layout, NFS, quotas.
-3. **Users:** users.yml, admin accounts, SSH hardening.
-4. **GPU:** NVIDIA driver on douglas1.
+2. **GPU:** NVIDIA driver on douglas1, then the full-load test (D47). Moved up 2026-10-19: the user wants it early. It needs only Ansible, `./cluster` and douglas1's internet access from step 1. The driver can come straight from NVIDIA's repo, with the version pinned, before the package mirror exists.
+3. **Storage:** `/raiddrive` layout, NFS, quotas.
+4. **Users:** users.yml, admin accounts, SSH hardening.
 5. **Slurm:** build, accounting DB, controller, douglas1 as first node, partitions, enforcement.
 6. **Billing and credits:** accounts, rates, ledger, charging script, Slurm credit limits, `credits` command, statements; dry-run a month on test jobs, including a deliberate run-out-of-credits test and a cross-check of ledger vs. Slurm.
 7. **Monitoring and alerts.**
@@ -368,4 +373,4 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 9. **User guide and terms**, onboard a friendly first customer.
 10. **Remove temporary sudo**; security review.
 
-Each step ends with a test, written down in the ops log.
+Each step ends with a test, written down in the ops log, and that test joins the weekly test suite ([`slurm-design.md`](slurm-design.md) section 11).

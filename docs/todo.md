@@ -3,6 +3,13 @@
 **Owner** says who does it: **you** = a person at a terminal or in a web UI; **Claude** = can be done from Claude Code once access is in place.
 Tick items off here and commit, so the history shows when each was done.
 
+## Next up (2026-10-19): NVIDIA driver on douglas1
+- [ ] **Claude:** Ansible + `./cluster` with run logging (first item of section 4). Every following step runs through it.
+- [ ] **Claude:** anton as gateway, so douglas1 can download packages (section 4).
+- [ ] **Claude:** Read-only checks on douglas1: Secure Boot, BIOS (Above 4G decoding, Resizable BAR), kernel headers, which memory sticks are installed (for a possible RAM upgrade).
+- [ ] **Claude:** SOP + Ansible role for the NVIDIA driver; install on douglas1; `nvidia-smi` shows all 10 GPUs; persistence mode on.
+- [ ] **Claude + you:** Full-load test of all 10 GPUs (D47), watching temperatures and power.
+
 ## 1. Finish renaming anton (remove every "douglas1" that refers to this machine)
 - [x] Hostname → `anton` (2026-10-17)
 - [x] RAID array renamed `douglas1:0` → `anton:0` (2026-10-18, `scripts/bootstrap/01-anton-fixes.sh`)
@@ -57,6 +64,7 @@ Tick items off here and commit, so the history shows when each was done.
 - [ ] SSH hardening on anton: key-only logins, no root login, fail2ban.
 - [ ] Back-up plan for the accounting database and `/raiddrive`.
 - [ ] Onboarding procedure and `./cluster add-user`, tested end to end.
+- [ ] Test customers `c0001`/`c0002` with `zz` users, and `./cluster test`: code tests on every push (GitHub Actions), live tests weekly (systemd timer). See `slurm-design.md` section 11.
 
 ## 9. Repeatable operations (Claude)
 - [ ] `./cluster add-user`, `add-node`, `add-gpu`, `add-disk`, `apply`, `billing-report`, each documented in `docs/procedures/`.

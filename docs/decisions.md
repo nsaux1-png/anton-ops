@@ -57,3 +57,12 @@ Private project under @nicolas478; can be moved to a group later without losing 
 - **Q2 Customers can see the cluster's nodes and GPUs** (`sinfo`), including which are busy. Jobs, usage and files stay private.
 
 **Why:** the user's answers, 2026-10-19. Every user can list usernames, so usernames mustn't reveal who the customers are.
+
+## 2026-10-19: Shared upstream network, job scripts, zero balance, tests (plan D11; design Q5, Q6)
+- **D11: anton's upstream network is shared** with other machines on the same switch, so nothing on it is trusted. Cluster services listen only on the cluster network, and admin logins need more than "being on the LAN" (design Q3).
+- **Q5: job scripts are kept 60 days**, then deleted. Environment variables aren't kept. The terms say so.
+- **Q6: at zero balance** jobs stop. Files stay and storage keeps charging, so the balance can go negative for storage only. After 30 days negative, with email warnings, the files are deleted.
+- **Tests are required:** test accounts and a test suite (`./cluster test`), with live tests weekly. Every SOP ends with checks that join the suite.
+- **NVIDIA driver on douglas1 moved up** to step 2 of the build order.
+
+**Why:** the user's answers, 2026-10-19. Job scripts help investigate abuse; 60 days is long enough for that without holding customer code forever.
