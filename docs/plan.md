@@ -41,7 +41,7 @@ How to read this:
 - **Power and cooling:** 10 GPUs is roughly 3 kW under load. Is there a UPS, and is the room cooled for it?
 
 **Decisions**
-- **D4. Network upgrade:** add a 10 Gb (or faster) link between anton and compute nodes? douglas1 already has a second, unused port (`enp66s0f0np0`), likely fast; anton would need a NIC and there'd need to be a switch. *Recommended: yes, before paying customers run data-heavy GPU work.*
+- **D4. Network upgrade:** add a 10 Gb (or faster) link between anton and compute nodes? douglas1 already has a second, unused port (`enp66s0f0np0`), likely fast; anton would need a NIC and there'd need to be a switch. *Recommended: yes, before paying customers run data-heavy GPU work.* **→ Decided 2026-10-19: 10 Gb card in anton, cabled straight to douglas1; switch with the second node. Linear COP-42.**
 - **D5. Local scratch on GPU nodes:** add NVMe drives to douglas1 for fast per-job scratch? *Recommended: yes, 2–4 TB.*
 - **D6. Separate login node later:** *Recommended: start with anton as login node, split when we pass ~10 active users or see login-node load problems.*
 - **D7. UPS:** is there one? If so, can it signal shutdown? **→ Decided 2026-10-19: no UPS.**

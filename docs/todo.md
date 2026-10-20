@@ -25,6 +25,9 @@ Tick items off here and commit, so the history shows when each was done.
 - [ ] **you:** Archive or delete the old GitLab project `nicolas478/anton-ops`, and remove anton's key from the GitLab account.
 - [x] GitLab removed from anton: `~/.ssh/id_ed25519_gitlab` key pair deleted, `gitlab.com` dropped from `~/.ssh/config` and `known_hosts` (2026-10-19). The key can no longer be used, but still delete it from the GitLab account (item above).
 
+## 3b. Hardware
+- [ ] **you:** Buy a 10 Gb card for anton plus a Cat6a cable to douglas1 (Linear COP-42). Then **Claude:** configure the link and move cluster traffic onto it.
+
 ## 4. Foundations (Claude, once sudo is in place)
 - [ ] Install Ansible; set up the playbook skeleton, inventory (`nodes.yml`), and the `./cluster` command with run logging.
 - [ ] Manage `/etc/hosts` on all machines from the inventory.

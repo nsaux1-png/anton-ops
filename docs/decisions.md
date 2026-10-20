@@ -46,3 +46,8 @@ Private project under @nicolas478; can be moved to a group later without losing 
 ## 2026-10-19: Power (plan D7, D47)
 - **D7 UPS: none.** A power cut stops everything at once. To limit the damage: the accounting database uses crash-safe settings and is dumped nightly (D21), and jobs lost in an outage are refunded as node failures (D31).
 - **D47 Power for douglas1: adequate.** The user confirmed the circuits are sized for douglas1's full load (about 3.3–3.6 kW), so GPUs run at full power with no software cap. A full-load test after the driver install still checks temperatures and stability.
+
+## 2026-10-19: Network upgrade (plan D4)
+**D4: buy a 10 Gb card for anton** (10GBASE-T copper, e.g. Intel X550-T2) and cable it straight to douglas1's free 10 Gb port. A 10 Gb switch comes with the second compute node. Tracked in Linear as COP-42 (Purchasing Tracking List).
+
+**Why:** douglas1 already has 10 Gb ports; anton is 1 Gb only. It's the cheapest fix, and two machines don't need a switch. Shared storage is then limited by anton's hard drives (~200–400 MB/s) rather than the network.
