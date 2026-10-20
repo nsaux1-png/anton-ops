@@ -89,7 +89,7 @@ Then commit and push. Status as of 2026-10-19.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 9.1 | Database binlogs or hourly dumps to `/raiddrive` and off-site (the money records are on one disk); config and ledger backup; a restore test | 181, 301 | Pick the off-site destination (D39) | |
+| 9.1 | Database binlogs or hourly dumps to `/raiddrive` and off-site (the money records are on one disk); config and ledger backup; a restore test | 181, 301 | Pick the off-site destination (D39) | ◐ done on anton 2026-10-20 (nightly, hourly binary logs, restore check); off-site waits for D39 |
 
 ## Phase 10: Scheduling the test suite
 The tests themselves are written in each phase above. This phase only schedules and reports them.
