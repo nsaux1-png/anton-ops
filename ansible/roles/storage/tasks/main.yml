@@ -1,0 +1,95 @@
+# Shared storage on the head node (SOP-130):
+#   - /raiddrive mounted with user, group and project quotas (customers' limits, slurm-design.md section 4)
+#   - customer folders under /raiddrive/cluster, seen as /cluster on every machine
+#   - NFS (version 4 only) export of /raiddrive/cluster to the cluster network
+- name: Quotas in /raiddrive's mount options
+  ansible.posix.mount:
+    path: /raiddrive
+    src: "{{ storage_device }}"
+    fstype: xfs
+    opts: defaults,nofail,uquota,gquota,pquota
+    state: present   # fstab only: XFS ignores quota options on a remount
+
+- name: Are user, group and project quotas enforced
+  ansible.builtin.command: xfs_quota -x -c state /raiddrive
+  register: quota_state
+  changed_when: false
+  check_mode: false
+
+# Fails safely if anything is using /raiddrive: then it's a job for a maintenance window, not a surprise.
+- name: Unmount and mount /raiddrive so the quota options take effect
+  ansible.builtin.shell: umount /raiddrive && mount /raiddrive
+  when: quota_state.stdout.count('Enforcement: ON') < 3
+
+- name: Customer folders
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /raiddrive/cluster, mode: "0755" }
+    - { path: /raiddrive/cluster/home, mode: "0711" }       # customers can't list who else has a folder
+    - { path: /raiddrive/cluster/projects, mode: "0711" }
+    - { path: /raiddrive/cluster/software, mode: "0755" }
+
+- name: /cluster on the head node too, so paths are the same everywhere
+  ansible.posix.mount:
+    path: /cluster
+    src: /raiddrive/cluster
+    fstype: none
+    opts: bind,x-systemd.requires-mounts-for=/raiddrive
+    state: mounted
+
+- name: NFS server
+  ansible.builtin.dnf:
+    name: nfs-utils
+    state: present
+
+- name: NFS version 4 only (version 3 needs extra services and ports)
+  community.general.ini_file:
+    path: /etc/nfs.conf
+    section: nfsd
+    option: vers3
+    value: "n"
+    mode: "0644"
+  notify: Restart the NFS server
+
+- name: Folder for the NFS server's systemd settings
+  ansible.builtin.file:
+    path: /etc/systemd/system/nfs-server.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# /raiddrive is "nofail" so anton still boots if the array is broken. Then NFS must not start and
+# export the empty mount point, or customers' files would land on anton's system disk.
+- name: NFS server only runs with /raiddrive mounted
+  ansible.builtin.copy:
+    src: nfs-server-needs-raiddrive.conf
+    dest: /etc/systemd/system/nfs-server.service.d/needs-raiddrive.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart the NFS server
+
+- name: Export /raiddrive/cluster to the cluster network
+  ansible.builtin.copy:
+    dest: /etc/exports.d/cluster.exports
+    content: |
+      # Managed by Ansible (ansible/roles/storage), SOP-130.
+      /raiddrive/cluster {{ cluster_network }}(rw,sync,root_squash,no_subtree_check,sec=sys)
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Re-export
+
+- name: Run the NFS server now and at boot
+  ansible.builtin.systemd:
+    name: nfs-server
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode

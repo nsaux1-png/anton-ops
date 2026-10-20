@@ -1,0 +1,13 @@
+# Compute nodes mount the head node's customer folders at /cluster over NFS version 4 (SOP-130).
+- name: NFS client
+  ansible.builtin.dnf:
+    name: nfs-utils
+    state: present
+
+- name: Mount /cluster
+  ansible.posix.mount:
+    path: /cluster
+    src: "{{ storage_server }}:/raiddrive/cluster"
+    fstype: nfs4
+    opts: rw,hard,noatime,vers=4.2,_netdev
+    state: mounted

@@ -17,6 +17,9 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-103](SOP-103-admin-proxy.md) | Admin web proxy on anton; cluster-network firewall zone | proved 2026-10-19 |
 | [SOP-104](SOP-104-customer-network-limits.md) | Network limits for customer accounts on compute nodes | proved 2026-10-19 (boot loading checked at next reboot) |
 | [SOP-105](SOP-105-time.md) | Time sync | proved 2026-10-19 |
+| [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
+| SOP-111 | NVIDIA driver | ⚠️ in progress: douglas1 stuck in boot after the driver install |
+| [SOP-201](SOP-201-os-updates.md) | OS updates on compute nodes (`./cluster upgrade`) | proved 2026-10-19 on douglas1 |
 
 ## Template
 Copy this for a new SOP, named `SOP-NNN-short-name.md`:
