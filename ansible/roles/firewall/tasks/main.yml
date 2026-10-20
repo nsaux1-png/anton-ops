@@ -32,3 +32,13 @@
     state: enabled
   loop: "{{ cluster_zone_services }}"
   when: not (ansible_check_mode and cluster_zone is changed)
+
+- name: Ports open to the cluster network
+  ansible.posix.firewalld:
+    zone: cluster
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ cluster_zone_ports }}"
+  when: not (ansible_check_mode and cluster_zone is changed)

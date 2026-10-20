@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# The Slurm accounting database and its user (SOP-152). Installed by Ansible (ansible/roles/slurm_db).
+# Prints one line per change, nothing when all is already right. --check: report only.
+# The password is in /etc/cluster/secrets/slurmdb-password (root only), never on a command line.
+set -euo pipefail
+
+CHECK=${1:-}
+PASSWORD_FILE=/etc/cluster/secrets/slurmdb-password
+q() { mysql -N -B -e "$1"; }
+
+changes=()
+[[ $(q "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='slurm_acct_db'") == 1 ]] \
+  || changes+=("create the database slurm_acct_db")
+if ! MYSQL_PWD=$(cat "$PASSWORD_FILE") mysql -u slurm -N -B -e "SELECT 1" slurm_acct_db >/dev/null 2>&1; then
+  changes+=("set up the database user slurm")
+fi
+[[ $(q "SELECT COUNT(*) FROM mysql.user WHERE user=''") == 0 ]] || changes+=("remove anonymous database users")
+[[ $(q "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='test'") == 0 ]] \
+  || changes+=("remove the test database")
+
+[[ ${#changes[@]} -eq 0 ]] && exit 0
+printf '%s\n' "${changes[@]}"
+[[ $CHECK == --check ]] && exit 0
+
+PASSWORD=$(cat "$PASSWORD_FILE")
+mysql <<SQL
+CREATE DATABASE IF NOT EXISTS slurm_acct_db;
+CREATE USER IF NOT EXISTS 'slurm'@'localhost' IDENTIFIED BY '$PASSWORD';
+ALTER USER 'slurm'@'localhost' IDENTIFIED BY '$PASSWORD';
+GRANT ALL PRIVILEGES ON slurm_acct_db.* TO 'slurm'@'localhost';
+DROP USER IF EXISTS ''@'localhost';
+DROP USER IF EXISTS ''@'$(hostname)';
+DROP DATABASE IF EXISTS test;
+FLUSH PRIVILEGES;
+SQL

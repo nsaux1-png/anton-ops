@@ -8,6 +8,10 @@
         accounts: "{{ lookup('file', playbook_dir ~ '/../config/customers.yml') | from_yaml
                       | cluster_accounts(lookup('file', playbook_dir ~ '/../config/uids.yml') | from_yaml) }}"
       tags: always
+    - name: Software versions we pin (config/versions.yml)
+      ansible.builtin.set_fact:
+        slurm_version: "{{ (lookup('file', playbook_dir ~ '/../config/versions.yml') | from_yaml).slurm.version }}"
+      tags: always
   roles:
     - hosts
     - repos
@@ -24,6 +28,10 @@
     - storage
     - customer_storage
     - nvidia_repo         # NVML headers for building Slurm
+    - slurm_common
+    - slurm_db
+    - slurm_controller
+    - slurm_accounts
 
 - name: Compute nodes
   hosts: compute

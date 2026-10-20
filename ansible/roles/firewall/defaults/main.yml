@@ -4,3 +4,8 @@ cluster_zone_services:
   - squid
   - ntp
   - nfs
+
+# Ports anton opens to the cluster network.
+cluster_zone_ports:
+  - 6817/tcp          # slurmctld: nodes and commands talk to the controller
+  - 60001-63000/tcp   # srun on the login node: nodes connect back to interactive jobs

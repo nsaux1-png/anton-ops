@@ -1,0 +1,56 @@
+# The Slurm controller and accounting daemon on the head node (SOP-152, SOP-153).
+- name: Controller state folder
+  ansible.builtin.file:
+    path: /var/spool/slurmctld
+    state: directory
+    owner: slurm
+    group: slurm
+    mode: "0700"
+
+- name: Read the database password
+  ansible.builtin.slurp:
+    src: /etc/cluster/secrets/slurmdb-password
+  register: slurmdb_password
+  failed_when: false        # in a preview of the first run it doesn't exist yet
+  no_log: true
+
+- name: slurmdbd.conf (holds the database password, so only slurm can read it)
+  ansible.builtin.template:
+    src: slurmdbd.conf.j2
+    dest: /etc/slurm/slurmdbd.conf
+    owner: slurm
+    group: slurm
+    mode: "0600"
+  when: slurmdb_password.content is defined
+  no_log: true
+  notify: Restart slurmdbd
+
+- name: job_submit.lua, the job-size rules
+  ansible.builtin.template:
+    src: job_submit.lua.j2
+    dest: /etc/slurm/job_submit.lua
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart slurmctld
+
+- name: Run slurmdbd now and at boot
+  ansible.builtin.systemd:
+    name: slurmdbd
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and slurm_packages is skipped)
+
+- name: Wait for slurmdbd to answer
+  ansible.builtin.wait_for:
+    port: 6819
+    host: 127.0.0.1
+    timeout: 120
+  when: not ansible_check_mode
+
+- name: Run slurmctld now and at boot
+  ansible.builtin.systemd:
+    name: slurmctld
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and slurm_packages is skipped)

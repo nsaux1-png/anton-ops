@@ -1,0 +1,5 @@
+- name: Restart MariaDB
+  ansible.builtin.systemd:
+    name: mariadb
+    state: restarted
+  when: not ansible_check_mode

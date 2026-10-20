@@ -1,0 +1,126 @@
+#!/usr/bin/python3
+"""Slurm accounts, users and limits from config/customers.yml (SOP-154). Installed by Ansible
+(ansible/roles/slurm_accounts); tested by tests/code/test_slurm_accounts.py.
+
+Reads what's wanted as JSON on stdin:
+  {"cluster": "main", "admins": ["papaya"], "max_queued_jobs": 500,
+   "customers": [{"code": "c0001", "max_gpus": 2}],
+   "users": [{"name": "zz01", "customer": "c0001", "status": "active", "max_gpus": 4}]}
+
+Each customer is a Slurm account; each user has one association, in their customer's account:
+  - GPUs held at once and per job: GrpTRES / MaxTRESPerJob gres/gpu = the user's max_gpus
+  - a customer's max_gpus caps all its users together (GrpTRES on the account)
+  - suspended and removed users can't submit or run anything (MaxSubmitJobs=0, MaxJobs=0)
+Admins get an association in the "admin" account and AdminLevel=Administrator.
+Nothing is ever deleted: a user who leaves keeps their records, blocked.
+
+Prints one line per change, nothing when everything is already right. --check: report only.
+"""
+
+import json
+import subprocess
+import sys
+
+ADMIN_ACCOUNT = "admin"
+UNLIMITED = -1
+
+
+def sacctmgr(*args):
+    return subprocess.run(["sacctmgr", "-nP", *args], check=True, capture_output=True, text=True).stdout
+
+
+def gpu_limit(tres):
+    """The gres/gpu number in a TRES string like "cpu=4,gres/gpu=2", or UNLIMITED."""
+    for item in (tres or "").split(","):
+        if item.startswith("gres/gpu="):
+            return int(item.split("=", 1)[1])
+    return UNLIMITED
+
+
+def number(value):
+    return int(value) if value not in ("", None) else UNLIMITED
+
+
+def read_current(cluster, run=sacctmgr):
+    """What Slurm has now."""
+    current = {"clusters": set(), "accounts": set(), "account_gpus": {}, "users": {}, "admins": set()}
+    current["clusters"] = {line.strip() for line in run("show", "cluster", "format=cluster").splitlines() if line.strip()}
+    current["accounts"] = {line.strip() for line in run("show", "account", "format=account").splitlines() if line.strip()}
+    for line in run("show", "user", "format=user,adminlevel").splitlines():
+        if line.strip():
+            user, level = line.split("|")[:2]
+            if level == "Administrator":
+                current["admins"].add(user)
+    for line in run("show", "assoc", f"cluster={cluster}",
+                    "format=account,user,grptres,maxtresperjob,maxsubmitjobs,maxjobs").splitlines():
+        if not line.strip():
+            continue
+        account, user, grptres, maxtres, maxsubmit, maxjobs = line.split("|")[:6]
+        if not user:
+            current["account_gpus"][account] = gpu_limit(grptres)
+        else:
+            current["users"][(user, account)] = {"gpus": gpu_limit(grptres), "gpus_per_job": gpu_limit(maxtres),
+                                                 "max_submit": number(maxsubmit), "max_jobs": number(maxjobs)}
+    return current
+
+
+def plan(want, current):
+    """The sacctmgr commands (lists of arguments) that make Slurm match what's wanted, each with a description."""
+    cluster = want["cluster"]
+    steps = []
+    if cluster not in current["clusters"]:
+        steps.append((f"add cluster {cluster}", ["add", "cluster", cluster]))
+
+    accounts = [(ADMIN_ACCOUNT, UNLIMITED)] + [(c["code"], c.get("max_gpus")) for c in want["customers"]]
+    for code, max_gpus in accounts:
+        limit = UNLIMITED if max_gpus is None else max_gpus
+        if code not in current["accounts"]:
+            steps.append((f"add account {code}", ["add", "account", code, f"Cluster={cluster}",
+                                                   f"Description={'admins' if code == ADMIN_ACCOUNT else 'customer'}",
+                                                   f"Organization={code}"]))
+        if current["account_gpus"].get(code, UNLIMITED) != limit:
+            steps.append((f"account {code}: GPUs at once -> {'no limit' if limit == UNLIMITED else limit}",
+                          ["modify", "account", "where", f"name={code}", f"cluster={cluster}", "set",
+                           f"GrpTRES=gres/gpu={limit}"]))
+
+    for admin in want["admins"]:
+        if (admin, ADMIN_ACCOUNT) not in current["users"]:
+            steps.append((f"add admin {admin}", ["add", "user", admin, f"Account={ADMIN_ACCOUNT}",
+                                                 f"DefaultAccount={ADMIN_ACCOUNT}", f"Cluster={cluster}"]))
+        if admin not in current["admins"]:
+            steps.append((f"user {admin}: Slurm administrator",
+                          ["modify", "user", "where", f"name={admin}", "set", "AdminLevel=Administrator"]))
+
+    for u in want["users"]:
+        key = (u["name"], u["customer"])
+        active = u["status"] == "active"
+        wanted = {"gpus": u["max_gpus"], "gpus_per_job": u["max_gpus"],
+                  "max_submit": want["max_queued_jobs"] if active else 0,
+                  "max_jobs": UNLIMITED if active else 0}
+        have = current["users"].get(key)
+        if have is None:
+            steps.append((f"add user {u['name']} to {u['customer']}",
+                          ["add", "user", u["name"], f"Account={u['customer']}", f"DefaultAccount={u['customer']}",
+                           f"Cluster={cluster}"]))
+            have = {"gpus": UNLIMITED, "gpus_per_job": UNLIMITED, "max_submit": UNLIMITED, "max_jobs": UNLIMITED}
+        if have != wanted:
+            changes = ", ".join(f"{k} {have[k]} -> {wanted[k]}" for k in wanted if have[k] != wanted[k])
+            steps.append((f"user {u['name']} ({u['customer']}): {changes}",
+                          ["modify", "user", "where", f"name={u['name']}", f"account={u['customer']}",
+                           f"cluster={cluster}", "set", f"GrpTRES=gres/gpu={wanted['gpus']}",
+                           f"MaxTRESPerJob=gres/gpu={wanted['gpus_per_job']}",
+                           f"MaxSubmitJobs={wanted['max_submit']}", f"MaxJobs={wanted['max_jobs']}"]))
+    return steps
+
+
+def main():
+    check = "--check" in sys.argv[1:]
+    want = json.load(sys.stdin)
+    for description, args in plan(want, read_current(want["cluster"])):
+        print(description)
+        if not check:
+            subprocess.run(["sacctmgr", "-i", *args], check=True, capture_output=True, text=True)
+
+
+if __name__ == "__main__":
+    main()

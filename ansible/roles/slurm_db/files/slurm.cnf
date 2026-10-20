@@ -1,0 +1,17 @@
+# Managed by Ansible (ansible/roles/slurm_db), SOP-152.
+# SchedMD's recommended InnoDB settings for slurmdbd, plus:
+#   - only local connections (slurmdbd runs on this machine)
+#   - crash safety: every commit is on disk before it's acknowledged (no UPS, plan D7)
+#   - binary logs, so the accounting and money records can be restored to the minute (plan D21)
+[mysqld]
+bind-address=127.0.0.1
+innodb_buffer_pool_size=4G
+innodb_log_file_size=512M
+innodb_lock_wait_timeout=900
+innodb_flush_log_at_trx_commit=1
+sync_binlog=1
+server_id=1
+log_bin=/var/lib/mysql/binlog
+binlog_format=ROW
+expire_logs_days=14
+max_allowed_packet=64M

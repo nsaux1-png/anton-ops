@@ -1,0 +1,2 @@
+# Slurm administrators: they see every customer's jobs and can change any job (SOP-154).
+slurm_admins: [papaya]

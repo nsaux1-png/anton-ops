@@ -1,0 +1,12 @@
+- name: Restart munge
+  ansible.builtin.systemd:
+    name: munge
+    state: restarted
+
+# Running jobs survive both: their processes belong to slurmstepd, not to these daemons.
+- name: Restart Slurm daemons
+  ansible.builtin.systemd:
+    name: "{{ 'slurmctld' if 'head' in group_names else 'slurmd' }}"
+    state: restarted
+  when: not ansible_check_mode
+  failed_when: false        # not started yet on a first run; the role that starts it comes later

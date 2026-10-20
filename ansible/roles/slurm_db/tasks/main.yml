@@ -1,0 +1,52 @@
+# The accounting database on the head node (SOP-152): MariaDB, local connections only, crash-safe,
+# with binary logs so the money records can be restored to the minute (plan D21, review R2).
+- name: MariaDB server
+  ansible.builtin.dnf:
+    name: mariadb-server
+    state: present
+  register: mariadb_package
+
+- name: MariaDB settings for Slurm
+  ansible.builtin.copy:
+    src: slurm.cnf
+    dest: /etc/my.cnf.d/slurm.cnf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart MariaDB
+
+- name: Run MariaDB now and at boot
+  ansible.builtin.systemd:
+    name: mariadb
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and mariadb_package is changed)
+
+- name: Folder for secrets made on this machine (never in the repo)
+  ansible.builtin.file:
+    path: /etc/cluster/secrets
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Database password for Slurm, made once
+  ansible.builtin.shell: umask 077 && openssl rand -hex 24 > /etc/cluster/secrets/slurmdb-password
+  args:
+    creates: /etc/cluster/secrets/slurmdb-password
+
+- name: The database setup tool
+  ansible.builtin.copy:
+    src: cluster-slurmdb-setup
+    dest: /usr/local/sbin/cluster-slurmdb-setup
+    owner: root
+    group: root
+    mode: "0700"
+  register: setup_tool
+
+- name: Database, user and clean-up
+  ansible.builtin.command: "/usr/local/sbin/cluster-slurmdb-setup{{ ' --check' if ansible_check_mode else '' }}"
+  register: db_changes
+  changed_when: db_changes.stdout | length > 0
+  check_mode: false
+  when: not (ansible_check_mode and (mariadb_package is changed or setup_tool is changed))

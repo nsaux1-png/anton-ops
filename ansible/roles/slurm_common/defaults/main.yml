@@ -1,0 +1,15 @@
+# Slurm settings shared by every machine (SOP-152). Node hardware is in config/nodes.yml.
+slurm_cluster_name: main
+slurm_user_uid: 450                # the same "slurm" system user on every machine
+slurm_srun_ports: 60001-63000      # interactive jobs (srun) connect back to the login node on these
+slurm_default_partition: gpu
+slurm_gpu_partitions: [gpu]
+slurm_max_time: 7-00:00:00         # plan D23
+slurm_default_time: "01:00:00"
+slurm_cpus_per_gpu: 10             # hardware threads, i.e. 5 cores (design Q4)
+slurm_mem_per_gpu_mb: 20480        # 20 GB (design Q4)
+slurm_max_queued_jobs: 500         # per user
+
+# Packages from our build (SOP-151), by machine role.
+slurm_head_packages: [slurm, slurm-perlapi, slurm-slurmctld, slurm-slurmdbd, slurm-contribs]
+slurm_node_packages: [slurm, slurm-perlapi, slurm-slurmd, slurm-pam_slurm]

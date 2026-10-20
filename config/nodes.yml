@@ -28,3 +28,10 @@ all:
               cluster_ip: 172.16.50.11
               gpu_count: 10
               gpu_name: NVIDIA GeForce RTX 5070 Ti
+              gpu_slots: 11                 # planned GPUs: each GPU's share of CPUs and memory is sized for 11
+              slurm_cpus: 112               # Slurm counts hardware threads
+              slurm_sockets: 1
+              slurm_cores_per_socket: 56
+              slurm_threads_per_core: 2
+              slurm_real_memory_mb: 257000  # TO CONFIRM with slurmd -C when douglas1 is back
+              slurm_core_spec_count: 1      # one core for the system

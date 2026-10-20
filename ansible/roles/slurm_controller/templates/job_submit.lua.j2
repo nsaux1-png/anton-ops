@@ -1,0 +1,138 @@
+--[[
+job_submit.lua (SOP-153). Managed by Ansible (ansible/roles/slurm_controller); local edits are overwritten.
+Rules Slurm can't express by itself, checked when a job is submitted or changed
+(slurm-design.md section 7). Tests: tests/code/test_job_submit.py.
+
+On GPU partitions:
+  - a job must ask for at least one GPU (CPU-only jobs would strand the GPUs)
+  - each GPU comes with at most CPUS_PER_GPU CPUs (Slurm counts hardware threads) and MEM_PER_GPU_MB
+  - no --mem=0 (all of a node's memory) and no --exclusive (a whole node)
+On every partition, customers can't change a waiting job's size; they cancel and resubmit.
+
+Slurm runs this while holding its locks, so it does no file or network access.
+]]
+
+local GPU_PARTITIONS = { {{ slurm_gpu_partitions | map('regex_replace', '^(.*)$', '["\\1"] = true') | join(', ') }} }
+local DEFAULT_PARTITION = "{{ slurm_default_partition }}"
+local CPUS_PER_GPU = {{ slurm_cpus_per_gpu }}
+local MEM_PER_GPU_MB = {{ slurm_mem_per_gpu_mb }}
+local ADMIN_UIDS = { [0] = true, [{{ slurm_user_uid }}] = true }   -- root and the slurm user
+
+local function unset(v)
+  return v == nil or v == slurm.NO_VAL or v == slurm.NO_VAL64 or v == slurm.NO_VAL16
+end
+
+local function count(v, default)
+  if unset(v) or v == 0 then return default end
+  return v
+end
+
+local function blank(s)
+  return s == nil or s == ""
+end
+
+-- GPUs in a TRES string such as "gres/gpu:2", "gres/gpu:rtx5070ti:2" or "gres/gpu=2"
+local function gpus_in(tres)
+  if blank(tres) then return 0 end
+  local total = 0
+  for item in string.gmatch(tres, "[^,]+") do
+    if item == "gres/gpu" or string.find(item, "^gres/gpu[:=]") then
+      total = total + (tonumber(string.match(item, "[:=](%d+)$")) or 1)
+    end
+  end
+  return total
+end
+
+-- The per-GPU number in "gres/gpu:10" (from --cpus-per-gpu or --mem-per-gpu), or nil
+local function per_gpu(tres)
+  if blank(tres) then return nil end
+  return tonumber(string.match(tres, "gres/gpu[%w_:-]-[:=](%d+)"))
+end
+
+local function partitions(job)
+  local names = {}
+  for name in string.gmatch(blank(job.partition) and DEFAULT_PARTITION or job.partition, "[^,]+") do
+    names[#names + 1] = name
+  end
+  return names
+end
+
+local function reject(message)
+  slurm.log_user(message)
+  return slurm.ERROR
+end
+
+local function check_gpu_job(job)
+  if not blank(job.tres_per_socket) and gpus_in(job.tres_per_socket) > 0 then
+    return reject("Ask for GPUs per job (--gpus), per node (--gpus-per-node) or per task, not per socket.")
+  end
+  local nodes = count(job.min_nodes, 1)
+  local tasks = count(job.num_tasks, 1)
+  local gpus = gpus_in(job.tres_per_job) + gpus_in(job.tres_per_node) * nodes + gpus_in(job.tres_per_task) * tasks
+  if gpus < 1 then
+    return reject("GPU nodes run GPU jobs only: ask for at least one GPU, for example --gpus=1.")
+  end
+  if not unset(job.shared) and job.shared ~= 1 then
+    return reject("--exclusive isn't allowed on GPU nodes: each GPU comes with its own share of the node.")
+  end
+  if job.min_mem_per_node == 0 then
+    return reject(string.format("--mem=0 (all of a node's memory) isn't allowed: each GPU comes with up to %d GB.",
+                                MEM_PER_GPU_MB // 1024))
+  end
+
+  local cpus
+  local cpus_each = per_gpu(job.cpus_per_tres)
+  if cpus_each then
+    cpus = cpus_each * gpus
+  else
+    cpus = math.max(tasks * count(job.cpus_per_task, 1), count(job.min_cpus, 1),
+                    count(job.ntasks_per_node, 0) * nodes * count(job.cpus_per_task, 1))
+  end
+  if cpus > CPUS_PER_GPU * gpus then
+    return reject(string.format("%d GPU(s) come with at most %d CPUs (%d cores); this job asks for %d.",
+                                gpus, CPUS_PER_GPU * gpus, CPUS_PER_GPU * gpus // 2, cpus))
+  end
+
+  local mem = 0
+  local mem_each = per_gpu(job.mem_per_tres)
+  if not unset(job.min_mem_per_node) then
+    mem = job.min_mem_per_node * nodes
+  elseif not unset(job.min_mem_per_cpu) then
+    mem = job.min_mem_per_cpu * cpus
+  elseif mem_each then
+    mem = mem_each * gpus
+  end
+  if mem > MEM_PER_GPU_MB * gpus then
+    return reject(string.format("%d GPU(s) come with at most %d GB of memory; this job asks for %d GB.",
+                                gpus, MEM_PER_GPU_MB * gpus // 1024, math.ceil(mem / 1024)))
+  end
+  return slurm.SUCCESS
+end
+
+function slurm_job_submit(job, part_list, submit_uid)
+  for _, name in ipairs(partitions(job)) do
+    if GPU_PARTITIONS[name] then
+      local result = check_gpu_job(job)
+      if result ~= slurm.SUCCESS then return result end
+    end
+  end
+  return slurm.SUCCESS
+end
+
+local SIZE_FIELDS = { "tres_per_job", "tres_per_node", "tres_per_task", "tres_per_socket", "cpus_per_tres",
+                      "mem_per_tres", "min_cpus", "num_tasks", "cpus_per_task", "ntasks_per_node", "min_nodes",
+                      "min_mem_per_node", "min_mem_per_cpu", "shared", "partition" }
+
+function slurm_job_modify(job, job_rec, part_list, modify_uid)
+  if ADMIN_UIDS[modify_uid] then return slurm.SUCCESS end
+  for _, field in ipairs(SIZE_FIELDS) do
+    local v = job[field]
+    if not unset(v) and not (type(v) == "string" and v == "") then
+      return reject("A waiting job's size or partition can't be changed: cancel it (scancel) and submit it again.")
+    end
+  end
+  return slurm.SUCCESS
+end
+
+slurm.log_info("job_submit.lua loaded")
+return slurm.SUCCESS

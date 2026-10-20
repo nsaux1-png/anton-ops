@@ -1,0 +1,60 @@
+# Managed by Ansible (ansible/roles/slurm_common), SOP-152. Local edits are overwritten.
+# The same file on every machine. What each setting is for: slurm-design.md sections 6-9.
+{% set head = groups['head'][0] %}
+ClusterName={{ slurm_cluster_name }}
+SlurmctldHost={{ head }}({{ hostvars[head].cluster_ip }})
+SlurmUser=slurm
+AuthType=auth/munge
+CredType=cred/munge
+SlurmctldPort=6817
+SlurmdPort=6818
+SrunPortRange={{ slurm_srun_ports }}
+StateSaveLocation=/var/spool/slurmctld
+SlurmdSpoolDir=/var/spool/slurmd
+SlurmctldLogFile=/var/log/slurm/slurmctld.log
+SlurmdLogFile=/var/log/slurm/slurmd.log
+SlurmctldDebug=info
+SlurmdDebug=info
+
+# Jobs: cgroups hold each job to what it was given (cgroup.conf). "Contain" puts SSH logins into a
+# node under the user's job (pam_slurm_adopt).
+ProctrackType=proctrack/cgroup
+TaskPlugin=task/cgroup,task/affinity
+PrologFlags=Contain
+SelectType=select/cons_tres
+SelectTypeParameters=CR_Core_Memory
+GresTypes=gpu
+JobSubmitPlugins=lua
+EnforcePartLimits=ALL
+DisableRootJobs=YES
+KillWait=60
+ReturnToService=2
+MpiDefault=none
+
+# Accounting, in slurmdbd on {{ head }}. Customers see only their own jobs and usage.
+AccountingStorageType=accounting_storage/slurmdbd
+AccountingStorageHost={{ head }}
+AccountingStorageEnforce=associations,limits,qos,safe
+AccountingStorageTRES=gres/gpu,gres/gpumem,gres/gpuutil
+AccountingStoreFlags=job_script
+JobAcctGatherType=jobacct_gather/cgroup
+JobAcctGatherFrequency=task=30
+PrivateData=accounts,jobs,reservations,usage,users
+
+# Priority: fair share between customers. A job is billed for the largest share of a node it holds.
+PriorityType=priority/multifactor
+PriorityFlags=MAX_TRES
+PriorityDecayHalfLife=7-0
+PriorityWeightFairshare=10000
+PriorityWeightAge=1000
+PriorityMaxAge=7-0
+
+# Nodes (config/nodes.yml). CoreSpecCount and MemSpecLimit keep a core and some memory for the system;
+# what's left is exactly gpu_slots × the per-GPU share (slurm-design.md section 7).
+{% for node in groups['gpu_nodes'] | sort %}
+{% set h = hostvars[node] %}
+NodeName={{ node }} NodeAddr={{ h.cluster_ip }} CPUs={{ h.slurm_cpus }} Boards=1 SocketsPerBoard={{ h.slurm_sockets }} CoresPerSocket={{ h.slurm_cores_per_socket }} ThreadsPerCore={{ h.slurm_threads_per_core }} RealMemory={{ h.slurm_real_memory_mb }} CoreSpecCount={{ h.slurm_core_spec_count }} MemSpecLimit={{ h.slurm_real_memory_mb - h.gpu_slots * slurm_mem_per_gpu_mb }} Gres=gpu{{ (':' ~ h.slurm_gpu_type) if h.slurm_gpu_type is defined else '' }}:{{ h.gpu_count }} State=UNKNOWN
+{% endfor %}
+
+# Partitions.
+PartitionName=gpu Nodes={{ groups['gpu_nodes'] | sort | join(',') }} Default=YES MaxTime={{ slurm_max_time }} DefaultTime={{ slurm_default_time }} DefCpuPerGPU={{ slurm_cpus_per_gpu }} DefMemPerGPU={{ slurm_mem_per_gpu_mb }} TRESBillingWeights="CPU=1,Mem=0.5G,GRES/gpu=10" State=UP

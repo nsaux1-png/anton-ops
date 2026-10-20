@@ -1,0 +1,8 @@
+# Managed by Ansible (ansible/roles/slurm_common), SOP-152.
+# Each job gets exactly the cores, memory and GPUs it was given, and no swap.
+CgroupPlugin=cgroup/v2
+ConstrainCores=yes
+ConstrainRAMSpace=yes
+ConstrainSwapSpace=yes
+AllowedSwapSpace=0
+ConstrainDevices=yes

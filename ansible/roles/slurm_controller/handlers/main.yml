@@ -1,0 +1,11 @@
+- name: Restart slurmdbd
+  ansible.builtin.systemd:
+    name: slurmdbd
+    state: restarted
+  when: not ansible_check_mode
+
+- name: Restart slurmctld
+  ansible.builtin.systemd:
+    name: slurmctld
+    state: restarted
+  when: not ansible_check_mode
