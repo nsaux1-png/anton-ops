@@ -1,101 +1,33 @@
-"""End-to-end tests of ./cluster user and ./cluster customer, in a throwaway copy of the repo.
+"""End-to-end tests of ./cluster user and ./cluster customer, in a sandbox copy of the repo."""
 
-The copy has its own git history, a sample customers.yml and a stand-in ansible-playbook, so the
-commands really edit, commit and "apply", without touching the real repo or machines.
-"""
-
-import os
-import shutil
-import subprocess
-import tempfile
+import json
 import unittest
 
 import yaml
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOlIa7dt5DISYUNqy1KetIR7aipepSVvgF5WjS1QB/5c test@laptop"
-
-FAKE_PLAYBOOK = """#!/bin/bash
-echo "ansible-playbook $*" >> "$FAKE_CALLS"
-if [[ " $* " == *" --check "* && -f "$FAKE_STATE" ]]; then c=0; else c=1; fi
-[[ " $* " != *" --check "* ]] && touch "$FAKE_STATE"
-echo "anton                      : ok=2    changed=$c    unreachable=0    failed=0    skipped=0"
-"""
+from sandbox import KEY, Sandbox
 
 
 class UserCommands(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        root = self.root = os.path.join(self.tmp.name, "repo")
-        os.makedirs(os.path.join(root, "config"))
-        os.makedirs(os.path.join(root, "ansible"))
-        shutil.copy(os.path.join(REPO, "cluster"), root)
-        shutil.copy(os.path.join(REPO, ".gitignore"), root)
-        shutil.copytree(os.path.join(REPO, "clusterlib"), os.path.join(root, "clusterlib"),
-                        ignore=shutil.ignore_patterns("__pycache__"))
-        test_key = os.path.join(self.tmp.name, "zz01.pub")
-        with open(test_key, "w") as f:
-            f.write(KEY + "\n")
-        with open(os.path.join(root, "config", "customers.yml"), "w") as f:
-            f.write(f"""defaults:
-  storage_gb: 150
-  max_gpus: 4
-
-customers:
-  c0001:
-    name: Test customer
-    test: true
-    users:
-      zz01:
-        name: Test user
-        email: t@localhost
-        ssh_key_file: {test_key}
-  c4821:
-    name: Acme
-    users:
-      kx47:
-        name: Alice
-        email: alice@acme.example
-        ssh_key: {KEY}
-""")
-        for name in ("site.yml", "upgrade.yml"):
-            open(os.path.join(root, "ansible", name), "w").close()
-        open(os.path.join(root, "config", "nodes.yml"), "w").close()
-        bin_dir = os.path.join(self.tmp.name, "bin")
-        os.mkdir(bin_dir)
-        with open(os.path.join(bin_dir, "ansible-playbook"), "w") as f:
-            f.write(FAKE_PLAYBOOK)
-        os.chmod(os.path.join(bin_dir, "ansible-playbook"), 0o755)
-        self.logs = os.path.join(self.tmp.name, "logs")
-        os.mkdir(self.logs)
-        self.env = dict(os.environ, CLUSTER_LOG_DIR=self.logs, CLUSTER_SKIP_CODE_TESTS="1", PYTHONDONTWRITEBYTECODE="1",
-                        FAKE_CALLS=os.path.join(self.tmp.name, "calls"),
-                        FAKE_STATE=os.path.join(self.tmp.name, "applied"),
-                        PATH=bin_dir + os.pathsep + os.environ["PATH"],
-                        GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
-        self.git("init", "-q")
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", "start")
+        self.box = Sandbox()
+        self.addCleanup(self.box.cleanup)
+        self.root = self.box.root
 
     def git(self, *args):
-        return subprocess.run(["git", "-C", self.root, *args], env=getattr(self, "env", None),
-                              capture_output=True, text=True, check=True).stdout
+        return self.box.git(*args)
 
     def cluster(self, *args):
-        return subprocess.run(["/usr/bin/python3", os.path.join(self.root, "cluster"), *args], env=self.env,
-                              stdin=subprocess.DEVNULL, capture_output=True, text=True)
+        return self.box.cluster(*args)
 
     def customers(self):
-        with open(os.path.join(self.root, "config", "customers.yml")) as f:
-            return yaml.safe_load(f)["customers"]
+        return yaml.safe_load(self.box.read("config/customers.yml"))["customers"]
 
     def uids(self):
-        with open(os.path.join(self.root, "config", "uids.yml")) as f:
-            return yaml.safe_load(f)
+        return yaml.safe_load(self.box.read("config/uids.yml"))
 
     def commits(self):
-        return self.git("log", "--format=%s").splitlines()
+        return self.box.commits()
 
     def test_user_add_edits_commits_gives_ids_and_applies(self):
         r = self.cluster("user", "add", "c4821", "--name", "Bob Smith", "--email", "bob@acme.example",
@@ -172,8 +104,7 @@ customers:
         self.assertEqual(len(self.customers()[new[0]]["users"]), 1)
 
     def test_uncommitted_changes_block_config_changes(self):
-        with open(os.path.join(self.root, "config", "customers.yml"), "a") as f:
-            f.write("# hand edit\n")
+        self.box.write("config/customers.yml", self.box.read("config/customers.yml") + "# hand edit\n")
         r = self.cluster("user", "suspend", "kx47", "--yes")
         self.assertEqual(r.returncode, 2)
         self.assertIn("uncommitted", r.stdout)
@@ -181,7 +112,6 @@ customers:
     def test_listings(self):
         r = self.cluster("user", "list", "--json")
         self.assertEqual(r.returncode, 0, r.stderr)
-        import json
         rows = json.loads(r.stdout)
         self.assertEqual({row["user"] for row in rows}, {"zz01", "kx47"})
         self.assertEqual(self.cluster("customer", "list").returncode, 0)

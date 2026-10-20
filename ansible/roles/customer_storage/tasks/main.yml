@@ -9,7 +9,9 @@
   loop: "{{ accounts.users }}"
   loop_control:
     label: "{{ item.name }}"
+  register: homes
 
+# In a preview, new home folders don't exist yet, so this waits for the real run.
 - name: Standard shell settings in home folders (only where missing)
   ansible.builtin.copy:
     src: "/etc/skel/{{ item.1 }}"
@@ -22,6 +24,7 @@
   loop: "{{ accounts.users | product(['.bashrc', '.bash_profile', '.bash_logout']) | list }}"
   loop_control:
     label: "{{ item.0.name }}/{{ item.1 }}"
+  when: not (ansible_check_mode and homes is changed)
 
 # setgid: new files belong to the customer's group, so they count against the customer's limit.
 - name: Project folders, shared by each customer's users
