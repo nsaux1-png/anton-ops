@@ -51,3 +51,9 @@ Private project under @nicolas478; can be moved to a group later without losing 
 **D4: buy a 10 Gb card for anton** (10GBASE-T copper, e.g. Intel X550-T2) and cable it straight to douglas1's free 10 Gb port. A 10 Gb switch comes with the second compute node. Tracked in Linear as COP-42 (Purchasing Tracking List).
 
 **Why:** douglas1 already has 10 Gb ports; anton is 1 Gb only. It's the cheapest fix, and two machines don't need a switch. Shared storage is then limited by anton's hard drives (~200–400 MB/s) rather than the network.
+
+## 2026-10-19: Usernames and what customers can see (design Q1, Q2)
+- **Q1 Usernames: two letters + two digits** (e.g. `kx47`), chosen at random, with letters unrelated to the person's name. A username is never reused. Customer groups and Slurm accounts get neutral codes too. Real names and company names are kept only in the admin config, never in `/etc/passwd`, which every user can read.
+- **Q2 Customers can see the cluster's nodes and GPUs** (`sinfo`), including which are busy. Jobs, usage and files stay private.
+
+**Why:** the user's answers, 2026-10-19. Every user can list usernames, so usernames mustn't reveal who the customers are.

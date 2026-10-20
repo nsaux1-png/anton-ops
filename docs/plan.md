@@ -186,7 +186,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
   - maybe `debug`: short jobs, high priority, for testing
 - **Resource enforcement:** cgroup v2. A job only sees the CPUs, memory and GPUs it asked for and can't use more.
 - **Scheduling:** backfill, fair-share between accounts so one customer can't monopolize the cluster, time limits per partition.
-- **GPU requests:** `--gpus=N` or `--gres=gpu:N`. CPUs and memory per GPU have defaults, so a job asking for 1 GPU gets ~1/10 of douglas1's CPU and RAM unless it asks for more.
+- **GPU requests:** `--gpus=N` or `--gres=gpu:N`. Each GPU comes with a fixed share of CPU and RAM (on douglas1: up to 5 cores and 24 GB per GPU). See [`slurm-design.md`](slurm-design.md) section 7.
 - **Node health check** before and between jobs; a sick node is drained automatically.
 - **Interactive use:** `srun --pty` / `salloc` for interactive sessions, billed the same as batch jobs.
 
