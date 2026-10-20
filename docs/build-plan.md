@@ -47,15 +47,15 @@ Then commit and push. Status as of 2026-10-19.
 | 4.0 | Customer folders live under `/cluster` (`/cluster/home`, `/cluster/projects`, `/cluster/software`), not `/home`, so admin home folders (with the repo and keys) stay local and untouched | 130 | | ✅ decided 2026-10-20 |
 | 4.1 | `/raiddrive` layout (`home`, `projects`, `software`, `mirror`), with user, group and project quotas on. That needs an fstab change and a full unmount and mount, done while it's still empty. | 131 | | ✅ done on anton 2026-10-20 |
 | 4.2 | NFS: export to the cluster network only; mount on douglas1 | 132 | | ◐ anton exporting; douglas1's mount waits for douglas1 |
-| 4.3 | Per-customer group quota (150 GB default), per-user usage, the hourly storage collector, the 90% warning; test that a file can't escape the quota | 133 | | |
+| 4.3 | Per-customer group quota (150 GB default), per-user usage, the hourly storage collector, the 90% warning; test that a file can't escape the quota | 133 | | ◐ limits done on anton 2026-10-20; hourly collector and 90% warning come with billing (phase 7) |
 
 ## Phase 5: Users and access
 **Tests written in this phase:** test customers and users exist on every machine with the right UIDs and groups; customers can't add SSH keys, use sudo or see other users' processes; suspended users can't log in or submit jobs; the `./cluster user` commands (code tests).
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 5.1 | `config/customers.yml` and `uids.yml`; `./cluster user add/suspend/remove`, `apply`; test customers `c0001`/`c0002` with `zz` users | 141, 201 | | |
-| 5.2 | fail2ban, root-owned customer SSH keys, hidden `/proc` (`ProtectProc=invisible`), home folder permissions, `0700` admin files | 142 | | |
+| 5.1 | `config/customers.yml` and `uids.yml`; `./cluster user add/suspend/remove`, `apply`; test customers `c0001`/`c0002` with `zz` users | 141, 201 | | ✅ done on anton 2026-10-20 (douglas1 when it's back) |
+| 5.2 | fail2ban, root-owned customer SSH keys, hidden `/proc` (`ProtectProc=invisible`), home folder permissions, `0700` admin files | 142 | | ◐ root-owned keys, no customer passwords, hidden processes done on anton 2026-10-20; fail2ban and the admin password question (1.6) open |
 
 ## Phase 6: Slurm
 **Tests written in this phase:** CPU job, 1 GPU, several GPUs; oversized jobs and CPU-only jobs on a GPU node rejected, also through `scontrol update`; the memory limit kills; a job sees only its own GPUs; customers can't see other customers' jobs in `squeue`, `sacct` or `sreport`; no SSH into a node without a job; a job can't reach the internet; signals and the grace step; accounting records match what ran.

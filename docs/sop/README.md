@@ -20,7 +20,10 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
 | SOP-111 | NVIDIA driver | ⚠️ in progress: douglas1 stuck in boot after the driver install |
 | [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20 |
+| [SOP-141](SOP-141-customer-accounts.md) | Customer accounts, folders and storage limits | proved on anton 2026-10-20 |
+| [SOP-142](SOP-142-customer-logins.md) | How customers log in | proved on anton 2026-10-20 |
 | [SOP-201](SOP-201-os-updates.md) | OS updates on compute nodes (`./cluster upgrade`) | proved 2026-10-19 on douglas1 |
+| [SOP-210](SOP-210-customers-and-users.md) | Adding and changing customers and users | commands tested in a sandbox |
 
 ## Template
 Copy this for a new SOP, named `SOP-NNN-short-name.md`:
