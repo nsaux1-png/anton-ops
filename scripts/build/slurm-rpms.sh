@@ -26,7 +26,7 @@ fi
 step "1. Build dependencies"
 sudo dnf -y -q install rpm-build gcc make autoconf automake pkgconf createrepo_c kernel-headers \
   dbus-devel munge-devel munge-libs readline-devel mariadb-devel pam-devel perl-ExtUtils-MakeMaker \
-  perl-devel python3 lua-devel hwloc-devel numactl-devel pmix-devel lz4-devel zlib-devel \
+  perl-devel python3 lua-devel hwloc-devel numactl-devel pmix-devel lz4-devel zlib-devel libcurl-devel \
   "cuda-nvml-devel-$CUDA"
 echo "   OK"
 
