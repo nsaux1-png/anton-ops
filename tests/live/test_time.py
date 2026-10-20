@@ -10,12 +10,13 @@ HEAD = head()
 
 def tracking(host):
     out = run(host, "chronyc -n tracking").stdout
-    return dict(line.split(":", 1) for line in out.splitlines() if ":" in line)
+    pairs = (line.split(":", 1) for line in out.splitlines() if ":" in line)
+    return {k.strip(): v.strip() for k, v in pairs}
 
 
 def synced(host):
     t = tracking(host)
-    return t if t.get("Leap status", "").strip() == "Normal" else None
+    return t if t.get("Leap status") == "Normal" else None
 
 
 class Time(unittest.TestCase):
@@ -30,7 +31,7 @@ class Time(unittest.TestCase):
                 t = wait_until(lambda: synced(node))
                 self.assertTrue(t, tracking(node))
                 self.assertIn(f"({var(HEAD, 'cluster_ip')})", t["Reference ID"])
-                offset = float(re.match(r"\s*([\d.]+) seconds", t["System time"]).group(1))
+                offset = float(re.match(r"([\d.]+) seconds", t["System time"]).group(1))
                 self.assertLess(offset, 0.1)
 
     def test_head_serves_time_to_the_cluster_network_only(self):
