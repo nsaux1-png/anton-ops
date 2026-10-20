@@ -4,6 +4,7 @@
   become: true
   roles:
     - hosts
+    - repos
 
 - name: Head node
   hosts: head
@@ -19,3 +20,9 @@
   roles:
     - egress
     - time
+
+- name: GPU nodes
+  hosts: gpu_nodes
+  become: true
+  roles:
+    - nvidia_driver

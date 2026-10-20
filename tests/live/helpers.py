@@ -44,13 +44,13 @@ def head():
     return hosts("head")[0]
 
 
-def run(host, command, timeout=120):
-    """Run a bash command on host. Returns the CompletedProcess, with stdout and stderr as text."""
+def run(host, command, timeout=120, input=None):
+    """Run a bash command on host, with optional text on its stdin. Returns the CompletedProcess."""
     if _inventory()["_meta"]["hostvars"][host].get("ansible_connection") == "local":
         argv = ["bash", "-c", command]
     else:
         argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, command]
-    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout, input=input)
 
 
 def as_customer(command, uid=PRETEND_CUSTOMER_UID):

@@ -161,10 +161,19 @@ def cmd_test(args, log):
 
 def cmd_apply(args, log):
     """Code tests, preview, confirm, apply, then check that nothing is left to change."""
+    return run_playbook(args, log, "site.yml")
+
+
+def cmd_upgrade(args, log):
+    """OS updates on compute nodes, one at a time, rebooting where needed (version-locked packages stay)."""
+    return run_playbook(args, log, "upgrade.yml")
+
+
+def run_playbook(args, log, playbook_file):
     if log.uncommitted and not args.allow_dirty:
         raise Refused("The repo has uncommitted changes. Commit them first, so this run matches a commit "
                       "(or pass --allow-dirty for a discovery run; the diff goes in the log).")
-    playbook = ["ansible-playbook", "-i", INVENTORY, "site.yml"]
+    playbook = ["ansible-playbook", "-i", INVENTORY, playbook_file]
     if args.limit:
         playbook += ["--limit", args.limit]
     if args.tags:
@@ -227,14 +236,17 @@ def build_parser():
     p = sub.add_parser("ping", help="check that Ansible reaches every machine and can become root")
     p.set_defaults(func=cmd_ping)
 
-    p = sub.add_parser("apply", help="bring every machine in line with the repo (preview first)")
-    p.add_argument("--dry-run", action="store_true", help="only show what would change")
-    p.add_argument("--yes", action="store_true", help="don't ask before changing (for cron and agents)")
-    p.add_argument("--limit", help="only these machines (Ansible --limit)")
-    p.add_argument("--tags", help="only these parts (Ansible --tags)")
-    p.add_argument("--allow-dirty", action="store_true",
-                   help="run with uncommitted changes (discovery runs only; the diff is logged)")
-    p.set_defaults(func=cmd_apply)
+    for name, func, text in [
+            ("apply", cmd_apply, "bring every machine in line with the repo (preview first)"),
+            ("upgrade", cmd_upgrade, "OS updates on compute nodes, one at a time, with reboots (preview first)")]:
+        p = sub.add_parser(name, help=text)
+        p.add_argument("--dry-run", action="store_true", help="only show what would change")
+        p.add_argument("--yes", action="store_true", help="don't ask before changing (for cron and agents)")
+        p.add_argument("--limit", help="only these machines (Ansible --limit)")
+        p.add_argument("--tags", help="only these parts (Ansible --tags)")
+        p.add_argument("--allow-dirty", action="store_true",
+                       help="run with uncommitted changes (discovery runs only; the diff is logged)")
+        p.set_defaults(func=func)
 
     p = sub.add_parser("test", help="run the tests: code tests and live tests on the cluster")
     p.add_argument("--code", action="store_true", help="only the code tests")

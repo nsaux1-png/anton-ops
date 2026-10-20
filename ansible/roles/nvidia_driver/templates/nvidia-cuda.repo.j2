@@ -1,0 +1,7 @@
+# Managed by Ansible (ansible/roles/nvidia_driver), SOP-111.
+[nvidia-cuda]
+name=NVIDIA CUDA and driver packages for RHEL 9
+baseurl={{ nvidia_repo_url }}
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda

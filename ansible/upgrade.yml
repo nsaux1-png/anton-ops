@@ -1,0 +1,27 @@
+# ./cluster upgrade: OS updates on compute nodes, one node at a time, rebooting when needed (SOP-201).
+# Version-locked packages (the NVIDIA driver) don't change. The head node isn't included: rebooting
+# it stops the whole cluster, so it has its own procedure.
+# Once Slurm runs, this drains each node and waits for its jobs before updating it.
+- name: Update compute nodes
+  hosts: compute
+  become: true
+  serial: 1
+  tasks:
+    - name: Update every package
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_cache: true
+
+    - name: Is a reboot needed (new kernel or core libraries)
+      ansible.builtin.command: dnf needs-restarting -r
+      register: needs_reboot
+      changed_when: false
+      failed_when: needs_reboot.rc not in [0, 1]
+      check_mode: false
+
+    - name: Reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 1200
+        msg: "Rebooting for OS updates (./cluster upgrade)"
+      when: needs_reboot.rc == 1 and not ansible_check_mode

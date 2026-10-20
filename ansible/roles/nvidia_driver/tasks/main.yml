@@ -1,0 +1,107 @@
+# NVIDIA driver on GPU nodes (SOP-111): open kernel modules built with DKMS, one pinned version,
+# persistence mode on. Reboots the node when the driver isn't loaded yet (first install).
+# The key is kept in the repo, so trusting it needs no download; rpm_key checks its fingerprint.
+- name: NVIDIA's signing key file
+  ansible.builtin.copy:
+    src: RPM-GPG-KEY-nvidia-cuda
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Trust NVIDIA's signing key
+  ansible.builtin.rpm_key:
+    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
+    fingerprint: "{{ nvidia_repo_key_fingerprint }}"
+    state: present
+  when: not ansible_check_mode
+
+- name: NVIDIA's repository
+  ansible.builtin.template:
+    src: nvidia-cuda.repo.j2
+    dest: /etc/yum.repos.d/nvidia-cuda.repo
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Build tools for DKMS, and the versionlock plugin
+  ansible.builtin.dnf:
+    name:
+      - kernel-devel-matched
+      - kernel-headers
+      - dkms
+      - python3-dnf-plugin-versionlock
+    state: present
+
+- name: Keep the old nouveau driver from loading
+  ansible.builtin.copy:
+    src: blacklist-nouveau.conf
+    dest: /etc/modprobe.d/blacklist-nouveau.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Rebuild the initramfs
+
+- name: Which NVIDIA driver stream is enabled
+  ansible.builtin.command: dnf -q module list --enabled nvidia-driver
+  register: nvidia_stream
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Enable the {{ nvidia_driver_stream }} stream, so only this branch can be installed
+  ansible.builtin.command: dnf -y module enable nvidia-driver:{{ nvidia_driver_stream }}
+  when: (nvidia_driver_stream ~ ' [e]') not in nvidia_stream.stdout
+
+# The tasks below need the stream. In a preview of the first run it isn't enabled yet, so they wait.
+- name: Driver packages, at the pinned version
+  ansible.builtin.dnf:
+    name: "{{ nvidia_driver_packages | map('regex_replace', '$', '-' ~ nvidia_driver_version) | list }}"
+    state: present
+    allow_downgrade: false
+  when: not (ansible_check_mode and (nvidia_driver_stream ~ ' [e]') not in nvidia_stream.stdout)
+
+- name: Which NVIDIA packages are installed
+  ansible.builtin.shell: rpm -qa --qf '%{NAME}-%|EPOCH?{%{EPOCH}}:{0}|:%{VERSION}-%{RELEASE}.*\n' | grep -E '^(kmod-nvidia|nvidia-|libnvidia-)' | sort
+  register: nvidia_installed
+  changed_when: false
+  check_mode: false
+
+- name: Lock them at this version (OS updates leave the driver alone)
+  ansible.builtin.template:
+    src: versionlock.list.j2
+    dest: /etc/dnf/plugins/versionlock.list
+    owner: root
+    group: root
+    mode: "0644"
+  when: nvidia_installed.stdout_lines | length > 0
+
+- name: Persistence mode, so GPUs stay ready between jobs
+  ansible.builtin.systemd:
+    name: nvidia-persistenced
+    enabled: true
+    state: started
+  when: not (ansible_check_mode and nvidia_installed.stdout_lines | length == 0)
+
+- name: CUDA compiler for the live tests' GPU check
+  ansible.builtin.dnf:
+    name:
+      - cuda-nvcc-{{ nvidia_test_cuda }}
+      - cuda-cudart-devel-{{ nvidia_test_cuda }}
+    state: present
+  when: not (ansible_check_mode and (nvidia_driver_stream ~ ' [e]') not in nvidia_stream.stdout)
+
+- name: Is the NVIDIA driver loaded (and nouveau gone)
+  ansible.builtin.shell: lsmod | awk '{print $1}' | grep -xE 'nvidia|nouveau' | sort | tr '\n' ' '
+  register: nvidia_loaded
+  changed_when: false
+  check_mode: false
+
+- name: Rebuild the initramfs now if it's due, before rebooting
+  ansible.builtin.meta: flush_handlers
+
+- name: Reboot to load the driver
+  ansible.builtin.reboot:
+    reboot_timeout: 1200
+    msg: "Rebooting to load the NVIDIA driver (SOP-111)"
+  when: nvidia_loaded.stdout | trim != 'nvidia' and not ansible_check_mode

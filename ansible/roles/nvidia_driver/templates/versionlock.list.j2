@@ -1,0 +1,6 @@
+# Managed by Ansible (ansible/roles/nvidia_driver), SOP-111.
+# The NVIDIA driver stays at {{ nvidia_driver_version }}: OS updates don't change it.
+# Changing the driver version is its own procedure (SOP-111, "Changing the driver version").
+{% for line in nvidia_installed.stdout_lines %}
+{{ line }}
+{% endfor %}

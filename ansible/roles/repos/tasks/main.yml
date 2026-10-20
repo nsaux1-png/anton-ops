@@ -1,0 +1,19 @@
+# Package repositories on every machine (SOP-110).
+- name: CRB on (EPEL packages, DKMS and our Slurm build need its development packages)
+  community.general.ini_file:
+    path: /etc/yum.repos.d/rocky.repo
+    section: crb
+    option: enabled
+    value: "1"
+    no_extra_spaces: true
+    mode: "0644"
+
+# EPEL ships an old Slurm (22.05). Ours is built from SchedMD's source, so EPEL must never supply it.
+- name: EPEL never supplies Slurm
+  community.general.ini_file:
+    path: /etc/yum.repos.d/epel.repo
+    section: epel
+    option: excludepkgs
+    value: "slurm*"
+    no_extra_spaces: true
+    mode: "0644"

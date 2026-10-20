@@ -24,3 +24,5 @@ all:
             douglas1:
               ansible_host: 172.16.50.11
               cluster_ip: 172.16.50.11
+              gpu_count: 10
+              gpu_name: NVIDIA GeForce RTX 5070 Ti
