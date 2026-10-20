@@ -14,6 +14,7 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Claude + you:** Full-load test of all 10 GPUs (D47), watching temperatures and power.
 
 ## When douglas1 is back (it hung at boot after the NVIDIA driver install, 2026-10-19)
+- [ ] **Albert:** douglas1's BMC port onto the cluster switch, a fixed address from anton, and its login recorded, so its console and power button can be reached remotely (Linear COP-44, 2026-10-20; Albert's opinion asked there). anton's own BMC is probably already on that switch, asking for an address.
 - [ ] **you:** At douglas1's screen or BMC console, note what it shows. At the GRUB menu, press `e`, add `modprobe.blacklist=nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm` to the end of the `linux` line, then press Ctrl-X.
 - [ ] **Claude:** Read the failed boot's log (`journalctl -b -1`/`-2`), find why the driver hangs the boot, and fix it. Then try a supervised reboot, with a one-time GRUB entry and a fallback.
 - [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
