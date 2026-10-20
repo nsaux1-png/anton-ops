@@ -4,8 +4,10 @@
 Tick items off here and commit, so the history shows when each was done.
 
 ## Next up (2026-10-19): NVIDIA driver on douglas1
+The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [x] **Claude:** Ansible + `./cluster` with run logging (2026-10-19, SOP-001, SOP-101). `/etc/hosts` managed too (SOP-102).
-- [ ] **Claude:** Package mirror on anton (D46): dated snapshots of Rocky BaseOS/AppStream, EPEL and NVIDIA's repo on `/raiddrive`, served over HTTP to the cluster network only. douglas1's dnf uses only the mirror; douglas1 stays without internet.
+- [ ] **Claude:** Admin web proxy on anton, and network limits for customer accounts on douglas1 (build plan 1.3–1.4, SOP-103, SOP-104).
+- [ ] Package mirror: moved to build plan phase 3, before the second node or the first customer.
 - [ ] **Claude:** Read-only checks on douglas1: Secure Boot, BIOS (Above 4G decoding, Resizable BAR), kernel headers.
 - [x] **Claude:** douglas1's memory sticks: 8× 32 GB DDR4-2133, all 8 slots full (2026-10-19). Upgrade in Linear COP-43.
 - [ ] **Claude:** SOP + Ansible role for the NVIDIA driver; install on douglas1; `nvidia-smi` shows all 10 GPUs; persistence mode on.
@@ -41,7 +43,7 @@ Tick items off here and commit, so the history shows when each was done.
 - [x] Install Ansible; set up the playbook skeleton, inventory (`nodes.yml`), and the `./cluster` command with run logging (2026-10-19, SOP-001, SOP-101).
 - [x] Manage `/etc/hosts` on all machines from the inventory (2026-10-19, SOP-102).
 - [ ] Time sync: anton as chrony server, nodes as clients.
-- [ ] ~~anton as gateway (NAT)~~ Dropped 2026-10-19: compute nodes get no internet. Instead: the package mirror (Next up), plus a test that a job on douglas1 can't reach the internet.
+- [ ] ~~anton as gateway (NAT)~~ Dropped 2026-10-19: compute nodes get no internet. Instead: the admin proxy and customer network limits (Next up), plus a test that a job on douglas1 can't reach the internet.
 - [ ] Firewall zones on anton (upstream vs cluster network).
 - [ ] NFS: export from `/raiddrive` (home + shared software) to the cluster network; mount on nodes.
 - [ ] `users.yml` with fixed UID/GIDs, applied to every machine.

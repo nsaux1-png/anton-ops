@@ -62,7 +62,7 @@ How to read this:
   - `.200–.254` BMC/IPMI, if they get moved onto this network
 - **Naming:** `douglas1`, `douglas2`, … for GPU nodes? Or a pattern by type (e.g. `gpu01`, `cpu01`)? See D8.
 - **Name resolution:** `/etc/hosts` on every machine, generated from the inventory. A DNS server isn't needed until much larger.
-- **No internet for compute nodes** (user, 2026-10-19; replaces the earlier NAT plan). Jobs can't reach the internet, and anton doesn't forward traffic. Nodes get packages from anton's mirror (D46) and time from anton. Customers download data and software on anton, the login node, into their shared folders.
+- **No internet for customers' jobs** (user, 2026-10-19; replaces the earlier NAT plan). anton doesn't route traffic. Admins on compute nodes reach the web through a logged proxy on anton; customer accounts there can reach only the cluster network (SOP-103, SOP-104). Nodes get packages from anton's mirror (D46) and time from anton. Customers download data and software on anton, the login node, into their shared folders.
 - **Firewall on anton:** upstream side allows only SSH (and later, monitoring for admins); cluster side trusted.
 - **Customer access:** SSH to anton from the internet, keys only. Possibly a VPN instead (see D10).
 - **BMC/IPMI** (remote power and console for each server): put them on their own management network, reachable only from anton or admins.
@@ -85,7 +85,7 @@ How to read this:
 
 ### Where nodes get their packages from
 
-Compute nodes have no internet (section 3), which rules out the first option below. That still leaves a separate question: **where do system packages (OS updates, NVIDIA driver, Slurm) come from?** Professional clusters use one of three approaches:
+Compute nodes have no direct internet (section 3); admins reach it only through a proxy. That still leaves a separate question: **where do system packages (OS updates, NVIDIA driver, Slurm) come from?** Professional clusters use one of three approaches:
 
 | Approach | How it works | Pros | Cons |
 |---|---|---|---|
@@ -98,7 +98,7 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 **Proposal:** a **local snapshot mirror on anton** for system packages (Rocky BaseOS/AppStream, EPEL, NVIDIA's repo, plus our own Slurm builds). This fits "repeatable" best: a node added in six months gets exactly what douglas1 has, unless we deliberately move everyone to a newer snapshot. User jobs still use the NAT for pip/conda/datasets.
 
 **Decisions**
-- **D46. Package source for nodes:** (a) direct, (b) proxy, (c) local snapshot mirror. *Recommended: (c). It can start in step 1 of the build, so no node is ever installed from a moving target.* **→ Decided 2026-10-19: (c). Nodes have no internet (section 3), and (c) was already the recommendation.**
+- **D46. Package source for nodes:** (a) direct, (b) proxy, (c) local snapshot mirror. *Recommended: (c). It can start in step 1 of the build, so no node is ever installed from a moving target.* **→ Decided 2026-10-19: (c), in place before the second node or the first customer ([`build-plan.md`](build-plan.md) phase 3). Until then douglas1 installs through the admin proxy, with the key versions pinned.**
 - **D12. Network installs (PXE)** instead of USB? *Recommended: not now. Worth it at ~10+ nodes.*
 - **D13. Maintenance window:** day and time each month, and how much notice customers get. *Recommended: one fixed slot per month, 1 week notice.*
 
@@ -367,6 +367,8 @@ Manually copying `.rpm` files over is not how it's done; the "mirror" approach i
 ---
 
 ## 18. Build order (once the plan is agreed)
+
+Step by step, with what Claude does in each step and its SOP: [`build-plan.md`](build-plan.md).
 
 1. **Foundations:** Ansible + repo layout + `./cluster` with logging; hosts, time, firewall; local package mirror on anton (D46), served to the cluster network only. Nodes get no internet route.
 2. **GPU:** NVIDIA driver on douglas1, then the full-load test (D47). Moved up 2026-10-19: the user wants it early. It needs only Ansible, `./cluster` and the package mirror from step 1, which mirrors NVIDIA's repo too.

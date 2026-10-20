@@ -94,3 +94,11 @@ Every routine admin task (credits, users, software, maintenance, reports) is a `
 - Customers download data and software on anton, the login node, into their shared folders.
 
 **Why:** the user, 2026-10-19: "i don't want ppl to be able to directly use the internet from douglas". The mirror was already the recommended package source, and it also makes every node install identical versions.
+
+## 2026-10-19: Correction: no internet for customers' jobs; admins keep it, through a proxy
+This corrects the entry above. The user meant **customers**: "i don't want them grabbing info from the internet in the middle of an sbatch thing running … as admin, i should be able to install things on douglas1 thru proxy".
+- **Customers' jobs can't reach the internet.** On compute nodes, customer accounts (UID 2000 and up) can reach only the cluster network. The node's own firewall enforces this, by account (SOP-104).
+- **Admins can, through a web proxy on anton** (squid). It listens on the cluster network only, refuses customer accounts (blocked on the node), and logs every request (SOP-103). There's no NAT: anton still doesn't route traffic.
+- **D46 timing:** the mirror comes before the second node or the first customer. Until then douglas1 installs through the proxy, with the key versions pinned (kernel, NVIDIA driver, later Slurm).
+
+**Why a proxy rather than NAT:** with NAT, a single firewall mistake puts every job on the internet, and nothing records what was fetched. The proxy only carries web traffic, only for admins, and logs it. **Why still a mirror:** it's the only way every node gets identical package versions with dated snapshots to roll back to. A proxy gives whatever is newest on the day.

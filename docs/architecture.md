@@ -9,7 +9,7 @@ Status: planned. Nothing below is installed yet unless marked otherwise.
 - **Slurm accounting** (`slurmdbd` + MariaDB): records every job (user, account, CPUs, GPUs, memory, time). This is the basis for billing.
 - **Login point:** users SSH into anton and submit jobs from there. They do not log into compute nodes directly.
 - **Shared storage:** the 2×4 TB RAID1 mirror (`/dev/md0`, XFS) is exported over NFS for `/home` and shared software.
-- **No internet for compute nodes** (2026-10-19): anton doesn't forward traffic, so the nodes can't reach the internet or the upstream LAN, and nothing outside can reach them. Nodes get packages from anton's mirror and time from anton.
+- **No internet for customers' jobs** (2026-10-19): anton doesn't route traffic, so nothing outside can reach the compute nodes and they have no direct internet. Admins on a compute node use anton's web proxy (squid, cluster network only, every request logged). Customer accounts on compute nodes can reach only the cluster network. Nodes get packages from anton's mirror and time from anton.
 - **Time server** (chrony): munge, Slurm's authentication, fails if clocks drift between machines.
 - **Ansible control node:** this repo lives here and configures every machine, including anton itself.
 

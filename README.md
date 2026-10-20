@@ -4,7 +4,7 @@ Home: https://github.com/nsaux1-png/anton-ops (private). Until 2026-10-19 it liv
 
 Configuration, scripts and records for our Slurm cluster.
 
-- **anton** is the head node: Slurm controller, accounting database, login point, shared storage, and package mirror for the cluster network (compute nodes have no internet).
+- **anton** is the head node: Slurm controller, accounting database, login point, shared storage, and the cluster network's admin web proxy and package mirror (customers' jobs have no internet).
 - **douglas1** is the first compute node (10 GPUs). More GPU and dual-socket CPU nodes will follow.
 
 Users log into anton and submit jobs. Every job is recorded in Slurm's accounting database, and that record is what we bill from.
@@ -20,6 +20,7 @@ Users log into anton and submit jobs. Every job is recorded in Slurm's accountin
 
 | Path | Contents |
 |---|---|
+| `docs/build-plan.md` | **Step-by-step build plan**: what gets done, which SOP, what needs you, status |
 | `docs/plan.md` | The full plan (draft, decisions D1–D46 being worked through) |
 | `docs/slurm-design.md` | Overall Slurm design from the user's requirements (draft) |
 | `docs/architecture.md` | How the cluster is put together |
