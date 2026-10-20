@@ -1,0 +1,54 @@
+# Customers' folders and storage limits on the storage server (SOP-141).
+- name: Home folders, private to each user
+  ansible.builtin.file:
+    path: "/raiddrive/cluster/home/{{ item.name }}"
+    state: directory
+    owner: "{{ item.uid }}"
+    group: "{{ item.gid }}"
+    mode: "0700"
+  loop: "{{ accounts.users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Standard shell settings in home folders (only where missing)
+  ansible.builtin.copy:
+    src: "/etc/skel/{{ item.1 }}"
+    remote_src: true
+    dest: "/raiddrive/cluster/home/{{ item.0.name }}/{{ item.1 }}"
+    owner: "{{ item.0.uid }}"
+    group: "{{ item.0.gid }}"
+    mode: "0644"
+    force: false
+  loop: "{{ accounts.users | product(['.bashrc', '.bash_profile', '.bash_logout']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1 }}"
+
+# setgid: new files belong to the customer's group, so they count against the customer's limit.
+- name: Project folders, shared by each customer's users
+  ansible.builtin.file:
+    path: "/raiddrive/cluster/projects/{{ item.code }}"
+    state: directory
+    owner: root
+    group: "{{ item.gid }}"
+    mode: "2770"
+  loop: "{{ accounts.customers }}"
+  loop_control:
+    label: "{{ item.code }}"
+
+- name: The storage-limit tool
+  ansible.builtin.copy:
+    src: cluster-quota
+    dest: /usr/local/sbin/cluster-quota
+    owner: root
+    group: root
+    mode: "0755"
+  register: quota_tool
+
+- name: Storage limits
+  ansible.builtin.command:
+    cmd: "/usr/local/sbin/cluster-quota{{ ' --check' if ansible_check_mode else '' }}"
+    stdin: "{{ accounts | cluster_quota_spec | to_json }}"
+  register: quota_changes
+  changed_when: quota_changes.stdout | length > 0
+  check_mode: false
+  when: not (ansible_check_mode and quota_tool is changed)

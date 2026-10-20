@@ -20,6 +20,10 @@ import time
 import traceback
 
 REPO = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, REPO)
+
+from clusterlib import config as cfg   # noqa: E402
+
 ANSIBLE_DIR = os.path.join(REPO, "ansible")
 INVENTORY = os.path.join(REPO, "config", "nodes.yml")
 LOG_DIR = os.environ.get("CLUSTER_LOG_DIR", "/var/log/cluster-ops")
@@ -29,6 +33,10 @@ EXIT_OK, EXIT_FAILED, EXIT_REFUSED = 0, 1, 2
 
 class Refused(Exception):
     """Stopped before changing anything (exit code 2)."""
+
+
+# Set only by this command's own tests (tests/code), which run it against stand-ins.
+TESTING = bool(os.environ.get("CLUSTER_SKIP_CODE_TESTS"))
 
 
 def git(*args):
@@ -180,10 +188,11 @@ def run_playbook(args, log, playbook_file):
         playbook += ["--tags", args.tags]
     env = ansible_env()
 
-    # Skipped only by this command's own tests, which run apply against stand-ins.
-    if not os.environ.get("CLUSTER_SKIP_CODE_TESTS") and not run_tests(log, ["code"]):
+    if not TESTING and not run_tests(log, ["code"]):
         log.say("Code tests failed; nothing was changed.")
         return EXIT_FAILED
+    if playbook_file == "site.yml":
+        prepare_config(log)
 
     log.say("-- Preview (Ansible check mode; nothing is changed):")
     code, out = log.run(playbook + ["--check", "--diff"], env=env, cwd=ANSIBLE_DIR)
@@ -212,6 +221,177 @@ def run_playbook(args, log, playbook_file):
         log.say(f"Not settled: the check found {left} change(s) still to make. A role isn't repeatable; fix it.")
         return EXIT_FAILED
     log.say("Done and settled.")
+    return EXIT_OK
+
+
+# --- customers and users -----------------------------------------------------
+
+TEST_KEY_DIR = "/etc/cluster/test-keys"
+
+
+def commit(log, message, paths):
+    """Commit these files (the post-commit hook pushes), and note the new commit in the run log."""
+    for cmd in (["git", "-C", REPO, "add", "--", *paths],
+                ["git", "-C", REPO, "commit", "-q", "-m", f"{message}\n\n(./cluster, operator={log.operator})", "--", *paths]):
+        code, _ = log.run(cmd)
+        if code != 0:
+            raise RuntimeError(f"git failed: {' '.join(cmd)}")
+    log.commit = git("rev-parse", "--short", "HEAD").strip()
+    log.say(f"Committed {log.commit}: {message}")
+
+
+def prepare_config(log):
+    """Before every apply: check customers.yml, give IDs to new customers and users (committing
+    uids.yml), and make SSH keys for new test users."""
+    try:
+        config = cfg.check(cfg.load())
+    except cfg.ConfigError as e:
+        raise Refused(str(e)) from None
+    uids, added = cfg.allocate(config, cfg.load_uids())
+    if added:
+        with open(cfg.UIDS_FILE, "w") as f:
+            f.write(cfg.format_uids(uids))
+        commit(log, "Give out IDs: " + ", ".join(added), [cfg.UIDS_FILE])
+    for c in config["customers"].values():
+        for name, u in (c.get("users") or {}).items():
+            pub = u.get("ssh_key_file")
+            if pub and not os.path.exists(pub):
+                key = pub[:-4] if pub.endswith(".pub") else pub
+                log.say(f"Making an SSH key for test user {name}: {key}")
+                for cmd in (["sudo", "install", "-d", "-m", "0750", "-g", "wheel", os.path.dirname(key)],
+                            ["sudo", "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", f"{name}@cluster-test", "-f", key]):
+                    if log.run(cmd)[0] != 0:
+                        raise RuntimeError(f"failed: {' '.join(cmd)}")
+    return config
+
+
+def change_config(args, log, message, edit):
+    """Change customers.yml with edit(text) -> text: show the change, check it, commit it, apply it."""
+    if log.uncommitted:
+        raise Refused("The repo has uncommitted changes. Commit them first.")
+    with open(cfg.CUSTOMERS_FILE) as f:
+        before = f.read()
+    try:
+        after = edit(before)
+        cfg.check(cfg.parse(after))
+    except cfg.ConfigError as e:
+        raise Refused(str(e)) from None
+    import difflib
+    log.say("-- Change to config/customers.yml:")
+    log.say("".join(difflib.unified_diff(before.splitlines(True), after.splitlines(True),
+                                         "customers.yml", "customers.yml")).rstrip())
+    if args.dry_run:
+        log.say("Dry run: customers.yml wasn't changed.")
+        return EXIT_OK
+    confirm(log, "Make this change, commit it, then apply it to the machines?", args.yes)
+    with open(cfg.CUSTOMERS_FILE, "w") as f:
+        f.write(after)
+    commit(log, message, [cfg.CUSTOMERS_FILE])
+    log.uncommitted = ""
+    return run_playbook(args, log, "site.yml")
+
+
+def read_key(args):
+    if bool(args.key) == bool(args.key_file):
+        raise Refused("Give the user's SSH public key with --key or --key-file (one of them).")
+    if args.key_file:
+        with open(args.key_file) as f:
+            return f.read().strip()
+    return args.key.strip()
+
+
+def cmd_user_add(args, log):
+    config = cfg.load()
+    username = cfg.new_username(cfg.all_usernames(config, cfg.load_uids()))
+    fields = {"name": args.name, "email": args.email, "ssh_key": read_key(args)}
+    if args.manager:
+        fields["role"] = "manager"
+    if args.max_gpus is not None:
+        fields["max_gpus"] = args.max_gpus
+    log.say(f"New user: {username} (customer {args.customer})")
+    return change_config(args, log, f"Add user {username} to {args.customer}",
+                         lambda text: cfg.add_user_text(text, args.customer, username, fields))
+
+
+USER_SETTABLE = {"name": str, "email": str, "ssh_key": str, "role": str, "max_gpus": int}
+CUSTOMER_SETTABLE = {"name": str, "billing_email": str, "storage_gb": int, "max_gpus": int, "discount_percent": int}
+
+
+def typed(table, field, value):
+    if field not in table:
+        raise Refused(f"'{field}' can't be set this way; choose from: {', '.join(table)}")
+    try:
+        return table[field](value)
+    except ValueError:
+        raise Refused(f"{field} must be a whole number") from None
+
+
+def cmd_user_set(args, log):
+    value = typed(USER_SETTABLE, args.field, args.value)
+    return change_config(args, log, f"Set {args.user} {args.field}",
+                         lambda text: cfg.set_user_field_text(text, args.user, args.field, value))
+
+
+def cmd_user_status(status):
+    def run(args, log):
+        cfg.find_user(cfg.load(), args.user)
+        return change_config(args, log, f"User {args.user}: {status}",
+                             lambda text: cfg.set_user_field_text(text, args.user, "status", status))
+    return run
+
+
+def cmd_customer_add(args, log):
+    config = cfg.load()
+    code = cfg.new_customer_code(set(config["customers"]) | set(cfg.load_uids()["groups"]))
+    fields = {"name": args.name}
+    if args.billing_email:
+        fields["billing_email"] = args.billing_email
+    if args.storage_gb is not None:
+        fields["storage_gb"] = args.storage_gb
+    if args.max_gpus is not None:
+        fields["max_gpus"] = args.max_gpus
+    log.say(f"New customer: {code} ({args.name})")
+    return change_config(args, log, f"Add customer {code}", lambda text: cfg.add_customer_text(text, code, fields))
+
+
+def cmd_customer_set(args, log):
+    value = typed(CUSTOMER_SETTABLE, args.field, args.value)
+    return change_config(args, log, f"Set {args.customer} {args.field}",
+                         lambda text: cfg.set_customer_field_text(text, args.customer, args.field, value))
+
+
+def print_rows(rows, columns, as_json):
+    if as_json:
+        import json
+        print(json.dumps(rows, indent=2))
+        return
+    widths = {c: max([len(c)] + [len(str(r.get(c, ""))) for r in rows]) for c in columns}
+    print("  ".join(c.ljust(widths[c]) for c in columns))
+    for r in rows:
+        print("  ".join(str(r.get(c, "")).ljust(widths[c]) for c in columns))
+
+
+def cmd_user_list(args, log):
+    config, uids = cfg.load(), cfg.load_uids()
+    rows = []
+    for code, c in sorted(config["customers"].items()):
+        if args.customer and code != args.customer:
+            continue
+        for name, u in sorted((c.get("users") or {}).items()):
+            rows.append({"user": name, "customer": code, "uid": uids["users"].get(name, "-"),
+                         "status": u.get("status", "active"), "role": u.get("role", "user"),
+                         "max_gpus": u.get("max_gpus", config["defaults"]["max_gpus"]), "name": u.get("name")})
+    print_rows(rows, ["user", "customer", "uid", "status", "role", "max_gpus", "name"], args.json)
+    return EXIT_OK
+
+
+def cmd_customer_list(args, log):
+    config, uids = cfg.load(), cfg.load_uids()
+    rows = [{"customer": code, "gid": uids["groups"].get(code, "-"), "test": c.get("test", False),
+             "users": len(c.get("users") or {}), "storage_gb": c.get("storage_gb", config["defaults"]["storage_gb"]),
+             "max_gpus": c.get("max_gpus", "-"), "name": c.get("name")}
+            for code, c in sorted(config["customers"].items())]
+    print_rows(rows, ["customer", "gid", "test", "users", "storage_gb", "max_gpus", "name"], args.json)
     return EXIT_OK
 
 
@@ -256,6 +436,60 @@ def build_parser():
 
     p = sub.add_parser("runs", help="list recent runs from the run log")
     p.add_argument("-n", type=int, default=20, help="how many (default 20)")
+
+    def change_options(p):
+        p.add_argument("--dry-run", action="store_true", help="only show the change")
+        p.add_argument("--yes", action="store_true", help="don't ask (for cron and agents)")
+        p.set_defaults(limit=None, tags=None, allow_dirty=False)
+
+    p = sub.add_parser("user", help="customers' users: add, set, suspend, resume, remove, list")
+    users = p.add_subparsers(dest="action", required=True, metavar="action")
+    q = users.add_parser("add", help="add a user to a customer (picks the username)")
+    q.add_argument("customer")
+    q.add_argument("--name", required=True, help="the person's full name (kept in the admin config only)")
+    q.add_argument("--email", required=True)
+    q.add_argument("--key", help="their SSH public key")
+    q.add_argument("--key-file", help="a file holding their SSH public key")
+    q.add_argument("--manager", action="store_true", help="can see the whole customer's usage and charges")
+    q.add_argument("--max-gpus", type=int, help="this user's GPU limit (default: defaults.max_gpus)")
+    change_options(q)
+    q.set_defaults(func=cmd_user_add)
+    q = users.add_parser("set", help="set one of a user's fields: " + ", ".join(USER_SETTABLE))
+    q.add_argument("user")
+    q.add_argument("field")
+    q.add_argument("value")
+    change_options(q)
+    q.set_defaults(func=cmd_user_set)
+    for status, verb, text in [("suspended", "suspend", "block login and jobs; files are kept"),
+                               ("active", "resume", "undo a suspension"),
+                               ("removed", "remove", "block login and jobs for good; the username is never reused")]:
+        q = users.add_parser(verb, help=text)
+        q.add_argument("user")
+        change_options(q)
+        q.set_defaults(func=cmd_user_status(status))
+    q = users.add_parser("list", help="list users")
+    q.add_argument("customer", nargs="?")
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(func=cmd_user_list, readonly=True)
+
+    p = sub.add_parser("customer", help="customers: add, set, list")
+    customers = p.add_subparsers(dest="action", required=True, metavar="action")
+    q = customers.add_parser("add", help="add a customer (picks the code)")
+    q.add_argument("--name", required=True)
+    q.add_argument("--billing-email")
+    q.add_argument("--storage-gb", type=int, help="storage limit in GiB (default: defaults.storage_gb)")
+    q.add_argument("--max-gpus", type=int, help="GPUs all its users can hold at once")
+    change_options(q)
+    q.set_defaults(func=cmd_customer_add)
+    q = customers.add_parser("set", help="set one of a customer's fields: " + ", ".join(CUSTOMER_SETTABLE))
+    q.add_argument("customer")
+    q.add_argument("field")
+    q.add_argument("value")
+    change_options(q)
+    q.set_defaults(func=cmd_customer_set)
+    q = customers.add_parser("list", help="list customers")
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(func=cmd_customer_list, readonly=True)
     return parser
 
 
@@ -263,6 +497,12 @@ def main(argv):
     args = build_parser().parse_args(argv)
     if args.command == "runs":
         return cmd_runs(args)
+    if getattr(args, "readonly", False):   # listings only read the config, so they aren't logged
+        try:
+            return args.func(args, None)
+        except cfg.ConfigError as e:
+            print(e, file=sys.stderr)
+            return EXIT_REFUSED
     if os.geteuid() == 0:
         print("Run ./cluster from your own admin account, not as root; it uses sudo where it needs to.",
               file=sys.stderr)
@@ -276,7 +516,7 @@ def main(argv):
         return EXIT_REFUSED
     try:
         code = args.func(args, log)
-    except Refused as e:
+    except (Refused, cfg.ConfigError) as e:
         log.say(f"REFUSED: {e}")
         code = EXIT_REFUSED
     except KeyboardInterrupt:

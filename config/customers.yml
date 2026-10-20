@@ -1,0 +1,51 @@
+# Customers and their users (slurm-design.md section 2).
+#
+# Edit this file, commit, then run ./cluster apply. Or let ./cluster make the change for you:
+#   ./cluster customer add --name "Acme Robotics" --billing-email ap@acme.example
+#   ./cluster user add c4821 --name "Alice Chen" --email alice@acme.example --key "ssh-ed25519 AAAA..."
+#   ./cluster user set kx47 max_gpus 6        ./cluster user suspend kx47
+#
+# - Customer codes are "c" + four digits; they're also the customer's Linux group and Slurm account.
+#   c0001-c0099 are test customers (test: true): never billed, never on statements.
+# - Usernames are two letters and two digits, picked at random by ./cluster user add.
+#   zz01-zz99 are test users. Real names and emails stay in this file; they're never put on the machines.
+# - storage_gb is the customer's total limit (all its users' home folders plus its project folder), in GiB.
+# - max_gpus: on a customer, the most GPUs all its users can hold at once; on a user, that user's limit.
+# - status: active (default), suspended (can't log in or run jobs; files kept) or removed.
+# - role: user (default) or manager (sees the whole customer's usage and charges).
+
+defaults:
+  storage_gb: 150
+  max_gpus: 4
+
+customers:
+  c0001:
+    name: Test customer 1
+    test: true
+    storage_gb: 1
+    max_gpus: 2
+    users:
+      zz01:
+        name: Test user 1 (manager)
+        email: test-zz01@localhost
+        ssh_key_file: /etc/cluster/test-keys/zz01.pub
+        role: manager
+      zz02:
+        name: Test user 2
+        email: test-zz02@localhost
+        ssh_key_file: /etc/cluster/test-keys/zz02.pub
+        max_gpus: 1
+      zz04:
+        name: Test user 4 (always suspended)
+        email: test-zz04@localhost
+        ssh_key_file: /etc/cluster/test-keys/zz04.pub
+        status: suspended
+  c0002:
+    name: Test customer 2
+    test: true
+    storage_gb: 1
+    users:
+      zz03:
+        name: Test user 3
+        email: test-zz03@localhost
+        ssh_key_file: /etc/cluster/test-keys/zz03.pub

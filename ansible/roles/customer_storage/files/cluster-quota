@@ -1,0 +1,72 @@
+#!/usr/bin/python3
+"""Customers' storage limits on XFS (SOP-141). Installed by Ansible (ansible/roles/customer_storage).
+
+Reads what's wanted as JSON on stdin:
+  {"mount": "/raiddrive",
+   "customers": [{"gid": 20000, "limit_gb": 150, "dirs": ["/raiddrive/cluster/projects/c4821", ...]}]}
+
+For each customer:
+  - a group quota on the customer's group: the limit that's enforced and billed
+  - a project quota with project ID = the group's GID on the customer's folders. It only makes df show
+    the limit; a file's owner can change its project, so it isn't the one that's relied on.
+
+Prints one line per change, and nothing when everything is already right.
+--check reports what would change and changes nothing. Sizes are GiB.
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+KIB_PER_GIB = 1024 * 1024
+
+
+def xfs_quota(mount, command):
+    return subprocess.run(["xfs_quota", "-x", "-c", command, mount],
+                          check=True, capture_output=True, text=True).stdout
+
+
+def hard_limits_kib(mount, kind):
+    """{id: hard block limit in KiB} for kind "g" (groups) or "p" (projects)."""
+    limits = {}
+    for line in xfs_quota(mount, f"report -{kind} -b -N -n").splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0].startswith("#"):
+            limits[int(parts[0][1:])] = int(parts[3])
+    return limits
+
+
+def project_of(path):
+    out = subprocess.run(["xfs_io", "-c", "lsproj", path], check=True, capture_output=True, text=True).stdout
+    return int(out.split("=")[1])   # "projid = 20000"
+
+
+def main():
+    check = "--check" in sys.argv[1:]
+    spec = json.load(sys.stdin)
+    mount = spec["mount"]
+    groups = hard_limits_kib(mount, "g")
+    projects = hard_limits_kib(mount, "p")
+    for c in spec["customers"]:
+        gid, gib = c["gid"], c["limit_gb"]
+        for kind, current in (("g", groups), ("p", projects)):
+            have = current.get(gid, 0)
+            if have != gib * KIB_PER_GIB:
+                label = "group" if kind == "g" else "project"
+                print(f"{label} {gid}: limit {have / KIB_PER_GIB:g} GiB -> {gib} GiB")
+                if not check:
+                    xfs_quota(mount, f"limit -{kind} bhard={gib}g {gid}")
+        for d in c["dirs"]:
+            if not os.path.isdir(d):
+                print(f"{d}: missing")
+                continue
+            have = project_of(d)
+            if have != gid:
+                print(f"{d}: project {have} -> {gid}")
+                if not check:
+                    xfs_quota(mount, f"project -s -p {d} {gid}")
+
+
+if __name__ == "__main__":
+    main()

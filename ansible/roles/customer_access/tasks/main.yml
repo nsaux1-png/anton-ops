@@ -1,0 +1,65 @@
+# How customers log in, on every machine (SOP-142).
+# - SSH keys in root-owned files (/etc/ssh/authorized_keys/<user>): customers can't add keys or share accounts.
+# - No password logins for customers. Test users (zz*) only from anton and the cluster network.
+# - sshd runs with a /proc that hides other users' processes from everything started through it.
+- name: Folder for customers' SSH keys
+  ansible.builtin.file:
+    path: /etc/ssh/authorized_keys
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: SSH keys of active customers
+  ansible.builtin.copy:
+    dest: "/etc/ssh/authorized_keys/{{ item.name }}"
+    content: "{{ item.ssh_key }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ accounts.users | selectattr('status', 'equalto', 'active') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: No keys for users who aren't active
+  ansible.builtin.file:
+    path: "/etc/ssh/authorized_keys/{{ item.name }}"
+    state: absent
+  loop: "{{ accounts.users | rejectattr('status', 'equalto', 'active') | list }}"
+  loop_control:
+    label: "{{ item.name }} ({{ item.status }})"
+
+- name: sshd rules for customers
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} customer access (managed by Ansible, ansible/roles/customer_access, SOP-142)"
+    insertafter: EOF
+    validate: /usr/sbin/sshd -t -f %s
+    block: |
+      Match Group {{ accounts.customers | map(attribute='code') | join(',') }}
+          AuthorizedKeysFile /etc/ssh/authorized_keys/%u
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+      Match User zz* Address *,!127.0.0.1,!::1,!{{ cluster_network }}
+          PubkeyAuthentication no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+      Match all
+  notify: Reload sshd
+
+- name: Folder for sshd's systemd settings
+  ansible.builtin.file:
+    path: /etc/systemd/system/sshd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hide other users' processes from logins
+  ansible.builtin.copy:
+    src: hide-processes.conf
+    dest: /etc/systemd/system/sshd.service.d/hide-processes.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart sshd

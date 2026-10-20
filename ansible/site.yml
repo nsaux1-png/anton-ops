@@ -2,9 +2,17 @@
 - name: Every machine
   hosts: all
   become: true
+  pre_tasks:
+    - name: Customers and users (config/customers.yml with config/uids.yml)
+      ansible.builtin.set_fact:
+        accounts: "{{ lookup('file', playbook_dir ~ '/../config/customers.yml') | from_yaml
+                      | cluster_accounts(lookup('file', playbook_dir ~ '/../config/uids.yml') | from_yaml) }}"
+      tags: always
   roles:
     - hosts
     - repos
+    - accounts
+    - customer_access
 
 - name: Head node
   hosts: head
@@ -14,6 +22,7 @@
     - time
     - admin_proxy
     - storage
+    - customer_storage
 
 - name: Compute nodes
   hosts: compute
