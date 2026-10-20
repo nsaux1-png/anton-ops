@@ -184,6 +184,8 @@ class JobRules(unittest.TestCase):
 
     def test_more_gpus_than_the_user_may_hold_never_starts(self):
         """zz02 may hold 1 GPU: a 2-GPU job is refused, or waits forever with the limit as its reason."""
+        if not run(HEAD, "sinfo -h -p gpu -t idle,mixed,allocated -o %n").stdout.strip():
+            self.skipTest("needs a GPU node up: with every node down, Slurm gives the node as the reason first")
         job, out = submit(A2, "--gpus=2")
         try:
             if job:
