@@ -15,8 +15,12 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 
 ## When douglas1 is back (it hung at boot after the NVIDIA driver install, 2026-10-19)
 - [ ] **Albert:** douglas1's BMC port onto the cluster switch, a fixed address from anton, and its login recorded, so its console and power button can be reached remotely (Linear COP-44, 2026-10-20; Albert's opinion asked there). anton's own BMC is probably already on that switch, asking for an address.
-- [ ] **you:** At douglas1's screen or BMC console, note what it shows. At the GRUB menu, press `e`, add `modprobe.blacklist=nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm` to the end of the `linux` line, then press Ctrl-X.
-- [ ] **Claude:** Read the failed boot's log (`journalctl -b -1`/`-2`), find why the driver hangs the boot, and fix it. Then try a supervised reboot, with a one-time GRUB entry and a fallback.
+- [x] **you:** Someone at douglas1's console got it running on 2026-10-20 (up since 16:17).
+- [x] **Claude:** Read douglas1's logs (2026-10-21, ops log 2026-10-21-douglas1-back). The driver loads fine; the 10-19 reboot stopped before any boot started, probably hardware around GPU `0000:01:00.0`. The failed restart left no log.
+- [ ] **you:** Who was at the console on 10-20, and what did they see and change (screen messages, GPU `0000:01:00.0` reseated, BIOS settings)?
+- [ ] **Claude:** A persistent journal on every machine (Ansible), so a failed boot leaves a log.
+- [ ] **Claude:** douglas1's kernel options into Ansible, so they're recorded and checked. Drop `initcall_debug` at the next planned reboot.
+- [ ] **Claude:** A supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry), only after COP-44.
 - [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
 - [ ] **Claude:** A full `./cluster apply`: accounts, logins, `/cluster` over NFS and the Slurm packages on douglas1. Keep a second SSH session to douglas1 open while sshd changes.
 - [ ] **Claude:** Wire in `slurm_node` (prepared, untested: slurmd, NVML, `pam_slurm_adopt`, hidden job processes). Test logins with and without a job, as admin and as a test user.

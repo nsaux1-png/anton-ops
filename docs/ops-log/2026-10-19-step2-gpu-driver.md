@@ -53,6 +53,8 @@ Build plan phase 2. The user asked for the build to continue while they were awa
    - There's no remote console from anton: douglas1's BMC isn't reachable from here.
 
 ## Most likely cause
+> **Wrong, corrected 2026-10-21:** the driver loaded fine in all 19 boots on 10-20. The reboot stopped before any boot started, probably a hardware problem around GPU `0000:01:00.0`. See [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md).
+
 The boot is stuck once the NVIDIA module loads. With nouveau blocked, udev loads `nvidia` for the 10 GPUs during boot. The only changes since the last good boot are:
 - the NVIDIA driver (open modules, built for all three installed kernels)
 - the nouveau blacklist

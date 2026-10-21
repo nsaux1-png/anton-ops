@@ -18,7 +18,7 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-104](SOP-104-customer-network-limits.md) | Network limits for customer accounts on compute nodes | proved 2026-10-19 (boot loading checked at next reboot) |
 | [SOP-105](SOP-105-time.md) | Time sync | proved 2026-10-19 |
 | [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
-| SOP-111 | NVIDIA driver | ⚠️ in progress: douglas1 stuck in boot after the driver install |
+| SOP-111 | NVIDIA driver | ◐ driver installed and tested (2026-10-21); written with the proof runs, after douglas1's BMC (COP-44) |
 | [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20 |
 | [SOP-141](SOP-141-customer-accounts.md) | Customer accounts, folders and storage limits | proved on anton 2026-10-20 |
 | [SOP-142](SOP-142-customer-logins.md) | How customers log in | proved on anton 2026-10-20 |

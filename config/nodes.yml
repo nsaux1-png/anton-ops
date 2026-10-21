@@ -31,6 +31,17 @@ all:
               gpu_count: 10
               gpu_name: NVIDIA GeForce RTX 5070 Ti
               gpu_slots: 11                 # planned GPUs: each GPU's share of CPUs and memory is sized for 11
+              gpu_pcie_links:               # measured under load 2026-10-21; a change means a riser or slot problem
+                "0000:01:00.0": gen3 x8     # was x4 on 2026-10-19
+                "0000:03:00.0": gen3 x8
+                "0000:45:00.0": gen3 x8
+                "0000:46:00.0": gen3 x8
+                "0000:81:00.0": gen3 x8
+                "0000:82:00.0": gen3 x8
+                "0000:c1:00.0": gen3 x8
+                "0000:c2:00.0": gen3 x8
+                "0000:c3:00.0": gen3 x8
+                "0000:c4:00.0": gen3 x8
               slurm_cpus: 112               # Slurm counts hardware threads
               slurm_sockets: 1
               slurm_cores_per_socket: 56
