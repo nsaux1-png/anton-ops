@@ -2,6 +2,7 @@
   ansible.builtin.systemd:
     name: munge
     state: restarted
+  when: not (ansible_check_mode and munge_package is changed)   # a first-run preview: not installed yet
 
 # Running jobs survive both: their processes belong to slurmstepd, not to these daemons.
 - name: Restart Slurm daemons
