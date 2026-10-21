@@ -17,6 +17,7 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-103](SOP-103-admin-proxy.md) | Admin web proxy on anton; cluster-network firewall zone | proved 2026-10-19 |
 | [SOP-104](SOP-104-customer-network-limits.md) | Network limits for customer accounts on compute nodes | proved 2026-10-19 (boot loading checked at next reboot) |
 | [SOP-105](SOP-105-time.md) | Time sync | proved 2026-10-19 |
+| [SOP-106](SOP-106-system-logs.md) | System logs kept on disk | draft 2026-10-21 |
 | [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
 | SOP-111 | NVIDIA driver | ◐ driver installed and tested (2026-10-21); written with the proof runs, after douglas1's BMC (COP-44) |
 | [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20 |

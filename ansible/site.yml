@@ -14,6 +14,8 @@
       tags: always
   roles:
     - hosts
+    - role: journal
+      tags: journal
     - repos
     - accounts
     - customer_access

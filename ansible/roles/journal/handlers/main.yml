@@ -1,0 +1,14 @@
+# Run in this order: journald starts writing to /var/log/journal, the in-memory part moves there,
+# then the folder gets the wheel/adm read access systemd's tmpfiles rules give it at boot.
+- name: Restart journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+
+- name: Move the journal to disk
+  ansible.builtin.command: journalctl --flush
+  changed_when: true
+
+- name: Let admins read the journal
+  ansible.builtin.command: systemd-tmpfiles --create --prefix /var/log/journal
+  changed_when: true

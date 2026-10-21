@@ -1,0 +1,24 @@
+# The system log (journal) kept on disk on every machine (SOP-106). Rocky keeps it in memory unless
+# /var/log/journal exists, so a boot that fails leaves nothing to read (ops log 2026-10-21-douglas1-back).
+- name: Folder for journald settings
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Keep the journal on disk
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/cluster.conf
+    content: |
+      # Managed by Ansible (ansible/roles/journal), SOP-106.
+      [Journal]
+      Storage=persistent
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Restart journald
+    - Move the journal to disk
+    - Let admins read the journal
