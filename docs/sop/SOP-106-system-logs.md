@@ -1,5 +1,5 @@
 # SOP-106: System logs kept on disk
-**Status:** draft 2026-10-21
+**Status:** proved 2026-10-21 ([ops log](../ops-log/2026-10-21-douglas1-setup.md))
 
 ## Purpose
 Every machine keeps its system log (the systemd journal) on disk, in `/var/log/journal`. After a crash or a failed boot, `journalctl -b -1` then shows what happened.
@@ -37,4 +37,4 @@ To apply only this part: `./cluster apply --tags journal`.
 4. Remove the role from `ansible/site.yml`.
 
 ## History
-- 2026-10-21: first version.
+- 2026-10-21: first version, applied to anton and douglas1. Proof run: undone on both, the tests failed, one apply fixed it.
