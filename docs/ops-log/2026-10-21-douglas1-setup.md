@@ -39,3 +39,18 @@ douglas1 is back (ops log [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md
   2. Took it off by hand: the tests failed (2).
   3. One apply (`20261021-164052-apply.log`) put it back, "Done and settled". Tests 3/3.
 - The proof runs moved `initcall_debug` to the end of the options. Order doesn't matter.
+
+## 3. Accounts, logins and shared storage on douglas1 (SOP-130, 141, 142)
+- A spare SSH connection to douglas1 was kept open (`ssh -M`, a control socket), so a mistake in the login rules could be undone through it.
+- `./cluster apply --limit douglas1 --dry-run`: 13 changes, all expected:
+  - the test customers' groups and users
+  - root-owned customer SSH keys and the customer `sshd` rules
+  - process hiding for `sshd` and `user@.service`
+  - the NFS client and the `/cluster` mount
+- `./cluster apply --limit douglas1` (`20261021-164438-apply.log`): "Done and settled".
+  - A new SSH login (not through the spare connection) works.
+  - `/cluster` is mounted from `anton:/raiddrive/cluster` over NFS 4.2.
+  - `zz01` has uid 10100, gid 20000, as on anton.
+- **Full live suite: 116 tests pass, 1 skipped** (the per-user GPU limit, which needs Slurm on a GPU node).
+  - That includes customer logins, process hiding, the same files on every node, accounts with the same IDs everywhere, and the customer network limits.
+  - Since this was douglas1's first run of these roles, straight from the repo with no improvising, it also counts as their proof run on a compute node. They were proved on anton on 2026-10-20.

@@ -23,7 +23,7 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Claude:** Drop `initcall_debug` (move it to `kernel_args_remove`) at the next planned reboot.
 - [ ] **Claude:** A supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry), only after COP-44.
 - [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
-- [ ] **Claude:** A full `./cluster apply`: accounts, logins, `/cluster` over NFS and the Slurm packages on douglas1. Keep a second SSH session to douglas1 open while sshd changes.
+- [x] **Claude:** A full `./cluster apply` on douglas1: accounts, logins, `/cluster` over NFS (2026-10-21). Live suite 116/116, 1 skipped. Slurm packages come with `slurm_node`.
 - [ ] **Claude:** Wire in `slurm_node` (prepared, untested: slurmd, NVML, `pam_slurm_adopt`, hidden job processes). Test logins with and without a job, as admin and as a test user.
 - [ ] **Claude:** GPU job tests, the skipped per-user GPU limit test, real-job charging, running out of credit → grace → stop, and the GPU check program on every GPU.
 - [ ] **you + Claude:** The one-hour full-load test (D47).

@@ -46,7 +46,7 @@ Then commit and push. Status as of 2026-10-19.
 |---|---|---|---|---|
 | 4.0 | Customer folders live under `/cluster` (`/cluster/home`, `/cluster/projects`, `/cluster/software`), not `/home`, so admin home folders (with the repo and keys) stay local and untouched | 130 | | ✅ decided 2026-10-20 |
 | 4.1 | `/raiddrive` layout (`home`, `projects`, `software`, `mirror`), with user, group and project quotas on. That needs an fstab change and a full unmount and mount, done while it's still empty. | 131 | | ✅ done on anton 2026-10-20 |
-| 4.2 | NFS: export to the cluster network only; mount on douglas1 | 132 | | ◐ anton exporting; douglas1's mount waits for douglas1 |
+| 4.2 | NFS: export to the cluster network only; mount on douglas1 | 132 | | ✅ done 2026-10-21 (anton exports; douglas1 mounts `/cluster` over NFS 4.2) |
 | 4.3 | Per-customer group quota (150 GB default), per-user usage, the hourly storage collector, the 90% warning; test that a file can't escape the quota | 133 | | ◐ limits done on anton 2026-10-20; hourly collector and 90% warning come with billing (phase 7) |
 
 ## Phase 5: Users and access
@@ -54,7 +54,7 @@ Then commit and push. Status as of 2026-10-19.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 5.1 | `config/customers.yml` and `uids.yml`; `./cluster user add/suspend/remove`, `apply`; test customers `c0001`/`c0002` with `zz` users | 141, 201 | | ✅ done on anton 2026-10-20 (douglas1 when it's back) |
+| 5.1 | `config/customers.yml` and `uids.yml`; `./cluster user add/suspend/remove`, `apply`; test customers `c0001`/`c0002` with `zz` users | 141, 201 | | ✅ done on anton 2026-10-20, douglas1 2026-10-21 |
 | 5.2 | fail2ban, root-owned customer SSH keys, hidden `/proc` (`ProtectProc=invisible`), home folder permissions, `0700` admin files | 142 | | ◐ root-owned keys, no customer passwords, hidden processes done on anton 2026-10-20; fail2ban done 2026-10-20; the admin password question (1.6) open |
 
 ## Phase 6: Slurm

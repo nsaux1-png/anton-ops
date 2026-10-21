@@ -21,9 +21,9 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-107](SOP-107-kernel-options.md) | Extra kernel options | proved 2026-10-21 |
 | [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
 | SOP-111 | NVIDIA driver | ◐ driver installed and tested (2026-10-21); written with the proof runs, after douglas1's BMC (COP-44) |
-| [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20 |
-| [SOP-141](SOP-141-customer-accounts.md) | Customer accounts, folders and storage limits | proved on anton 2026-10-20 |
-| [SOP-142](SOP-142-customer-logins.md) | How customers log in | proved on anton 2026-10-20 |
+| [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20; douglas1 2026-10-21 |
+| [SOP-141](SOP-141-customer-accounts.md) | Customer accounts, folders and storage limits | proved on anton 2026-10-20; douglas1 2026-10-21 |
+| [SOP-142](SOP-142-customer-logins.md) | How customers log in | proved on anton 2026-10-20; douglas1 2026-10-21 |
 | [SOP-151](SOP-151-build-slurm.md) | Build Slurm | proved 2026-10-20 |
 | [SOP-152](SOP-152-slurm-controller.md) | Slurm controller, database and shared configuration | proved on anton 2026-10-20 |
 | [SOP-153](SOP-153-job-rules.md) | Job-size rules (`job_submit.lua`) | proved 2026-10-20 |
