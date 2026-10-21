@@ -48,6 +48,7 @@
     - egress
     - time
     - shared_storage
+    - slurm_common
 
 - name: GPU nodes
   hosts: gpu_nodes
