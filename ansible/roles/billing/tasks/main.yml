@@ -72,6 +72,8 @@
     mode: "0640"
   loop: [customers.yml, uids.yml, rates.yml]
 
+# The next two run only for real, so a preview can't show them. They follow the code and config copied
+# above, which the preview does show; and the hourly run repeats the sync.
 - name: Ledger tables
   ansible.builtin.command: /usr/local/sbin/cluster-billing setup
   register: ledger_setup

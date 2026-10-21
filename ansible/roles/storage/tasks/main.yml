@@ -13,7 +13,7 @@
 - name: Are user, group and project quotas enforced
   ansible.builtin.command: xfs_quota -x -c state /raiddrive
   register: quota_state
-  changed_when: false
+  changed_when: "ansible_check_mode and quota_state.stdout.count('Enforcement: ON') < 3"   # the remount is skipped in a preview
   check_mode: false
 
 # Fails safely if anything is using /raiddrive: then it's a job for a maintenance window, not a surprise.
