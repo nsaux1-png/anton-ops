@@ -48,6 +48,7 @@ For any admin change to the machines. Don't change a machine by hand when a `./c
 - **`Can't write the run log`:** run SOP-101 again, and check that `id` shows `wheel`.
 - **`UNREACHABLE` in `ping`:** the machine is down, or SSH from anton fails. Try `ssh <machine>`.
 - **`Not settled`:** a role reports changes on every run. That's a bug in the role; fix it before relying on it.
+- **"Nothing to change", but something is wrong:** the preview skips `command` and `shell` tasks. A role must make each one visible in the preview (`tests/code/test_roles.py` checks every role). If a new role fails that test, fix the role.
 - **Preview fails, but the real run would work:** Ansible's preview can't always predict a task that depends on an earlier change in the same run, such as configuring a package that isn't installed yet. The role must handle this, so fix the role.
 
 ## Undo
@@ -55,3 +56,4 @@ Nothing to undo for `ping`. For a change made by `apply`, see the SOP for that p
 
 ## History
 - 2026-10-19: first version with `ping`, `apply` and `runs`. Commit 5634478.
+- 2026-10-21: the preview couldn't see changes made only by `command`/`shell` tasks. Fixed in the four roles affected; `tests/code/test_roles.py` keeps it that way ([ops log](../ops-log/2026-10-21-douglas1-setup.md)).

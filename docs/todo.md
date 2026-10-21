@@ -19,7 +19,8 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [x] **Claude:** Read douglas1's logs (2026-10-21, ops log 2026-10-21-douglas1-back). The driver loads fine; the 10-19 reboot stopped before any boot started, probably hardware around GPU `0000:01:00.0`. The failed restart left no log.
 - [ ] **you:** Who was at the console on 10-20, and what did they see and change (screen messages, GPU `0000:01:00.0` reseated, BIOS settings)?
 - [x] **Claude:** A persistent journal on every machine (2026-10-21, SOP-106), so a failed boot leaves a log.
-- [ ] **Claude:** douglas1's kernel options into Ansible, so they're recorded and checked. Drop `initcall_debug` at the next planned reboot.
+- [x] **Claude:** douglas1's kernel options into Ansible (2026-10-21, SOP-107), so they're recorded and checked.
+- [ ] **Claude:** Drop `initcall_debug` (move it to `kernel_args_remove`) at the next planned reboot.
 - [ ] **Claude:** A supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry), only after COP-44.
 - [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
 - [ ] **Claude:** A full `./cluster apply`: accounts, logins, `/cluster` over NFS and the Slurm packages on douglas1. Keep a second SSH session to douglas1 open while sshd changes.

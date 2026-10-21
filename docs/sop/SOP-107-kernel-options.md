@@ -1,5 +1,5 @@
 # SOP-107: Extra kernel options
-**Status:** draft 2026-10-21
+**Status:** proved 2026-10-21 ([ops log](../ops-log/2026-10-21-douglas1-setup.md))
 
 ## Purpose
 Some machines need extra kernel options. douglas1 has these:
@@ -39,4 +39,4 @@ To change an option:
 Move the option from `kernel_args` to `kernel_args_remove`, apply, then reboot when it's safe.
 
 ## History
-- 2026-10-21: first version. douglas1's existing options recorded as they were. Nothing changed on the machine.
+- 2026-10-21: first version. douglas1's existing options recorded as they were. Proof run: an option taken off by hand was caught by the tests and put back by one apply. The first proof run found that the preview couldn't see command tasks (fixed in `./cluster apply`'s roles, SOP-001).

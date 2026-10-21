@@ -16,3 +16,26 @@ douglas1 is back (ops log [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md
   1. Undid it on both machines (the SOP's undo steps). The old journal folders were kept as `/var/log/journal-before-proof-20261021`.
   2. The tests failed on both machines, 6 failures as expected.
   3. One apply from the repo (`20261021-163031-apply.log`) fixed it. Tests 3/3 again.
+
+## 2. douglas1's kernel options recorded (SOP-107, new)
+- New role `kernel_args` (every machine, tag `kernel_args`). It adds the options listed in `config/nodes.yml` (`kernel_args`) to every boot entry with `grubby`, and takes off any listed in `kernel_args_remove`. It never reboots. Live tests: `tests/live/test_kernel.py` (3 tests).
+- douglas1's eight extra options recorded as they were. The first apply changed nothing (`20261021-163430-apply.log`).
+- **The proof run found a bug in `./cluster apply` itself:**
+  1. With `initcall_debug` taken off by hand, the tests failed as expected.
+  2. But the apply said **"Nothing to change"** and didn't put it back.
+  3. Cause: the preview runs Ansible in check mode, which skips `command`/`shell` tasks without counting them as changes. A change made only by such a task was invisible to the preview, and to the "settled" check after an apply.
+- **Same blind spot in three older roles:**
+  - the initramfs rebuild (`nvidia_driver`)
+  - enabling the NVIDIA driver stream (`nvidia_driver`)
+  - the quota remount (`storage`)
+
+  They only ever ran because other changes happened in the same run.
+- **Fix:** the check task in front of each of these now reports the pending change in check mode (`changed_when: ansible_check_mode and ...`).
+  - New code test `tests/code/test_roles.py`: every command/shell task in every role must be read-only, run its own `--check`, use `creates`/`removes`, be explicitly real-run only, or be gated on such a check task.
+  - Run on the previous versions of the roles, it flags exactly those five tasks. Code tests: 110/110.
+  - The billing `setup`/`sync` tasks stay real-run only, with a comment saying why: they follow the code and config the preview does show, and the hourly run repeats the sync.
+- **Proof run again, from the start:**
+  1. Applied (`20261021-164011-apply.log`): put back `initcall_debug`, "Done and settled". Tests 3/3.
+  2. Took it off by hand: the tests failed (2).
+  3. One apply (`20261021-164052-apply.log`) put it back, "Done and settled". Tests 3/3.
+- The proof runs moved `initcall_debug` to the end of the options. Order doesn't matter.
