@@ -1,0 +1,30 @@
+# Extra kernel options on every boot entry, and for kernels installed later (SOP-107). grubby keeps the
+# boot entries, /etc/default/grub and /etc/kernel/cmdline in step. Changes take effect at the next boot:
+# this role never reboots.
+- name: Kernel options to add or take off
+  ansible.builtin.shell: |
+    set -euo pipefail
+    { grubby --info=ALL | sed -n 's/^args="\(.*\)"$/\1/p'
+      sed -n 's/^GRUB_CMDLINE_LINUX="\(.*\)"$/\1/p' /etc/default/grub
+      if [ -e /etc/kernel/cmdline ]; then cat /etc/kernel/cmdline; fi
+    } | python3 -c '
+    import json, sys
+    want, unwanted = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+    lines = [l.split() for l in sys.stdin if l.strip()]
+    print(json.dumps({"add": [a for a in want if any(a not in l for l in lines)],
+                      "remove": [a for a in unwanted if any(a in l for l in lines)]}))
+    ' {{ kernel_args | to_json | quote }} {{ kernel_args_remove | to_json | quote }}
+  register: kernel_args_plan
+  changed_when: false
+  check_mode: false
+  when: kernel_args | length > 0 or kernel_args_remove | length > 0
+
+- name: Add the missing ones to every boot entry (they take effect at the next boot)
+  ansible.builtin.command:
+    argv: [grubby, --update-kernel=ALL, "--args={{ (kernel_args_plan.stdout | from_json).add | join(' ') }}"]
+  when: kernel_args_plan.stdout is defined and (kernel_args_plan.stdout | from_json).add | length > 0
+
+- name: Take the unwanted ones off every boot entry (at the next boot)
+  ansible.builtin.command:
+    argv: [grubby, --update-kernel=ALL, "--remove-args={{ (kernel_args_plan.stdout | from_json).remove | join(' ') }}"]
+  when: kernel_args_plan.stdout is defined and (kernel_args_plan.stdout | from_json).remove | length > 0

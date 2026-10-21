@@ -16,6 +16,8 @@
     - hosts
     - role: journal
       tags: journal
+    - role: kernel_args
+      tags: kernel_args
     - repos
     - accounts
     - customer_access

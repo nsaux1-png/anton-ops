@@ -31,6 +31,15 @@ all:
               gpu_count: 10
               gpu_name: NVIDIA GeForce RTX 5070 Ti
               gpu_slots: 11                 # planned GPUs: each GPU's share of CPUs and memory is sized for 11
+              kernel_args:                  # extra kernel options on every boot entry (SOP-107)
+                - video=efifb:off           # these six came with the GPU bring-up, before this repo
+                - video=vesafb:off
+                - iommu=pt
+                - pcie_aspm=off
+                - pci=realloc=on
+                - initcall_debug            # leftover debugging: move to kernel_args_remove at the next planned reboot
+                - rd.driver.blacklist=nouveau    # these two come with NVIDIA's driver packages
+                - rd.driver.blacklist=nova-core
               gpu_pcie_links:               # measured under load 2026-10-21; a change means a riser or slot problem
                 "0000:01:00.0": gen3 x8     # was x4 on 2026-10-19
                 "0000:03:00.0": gen3 x8

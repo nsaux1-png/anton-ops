@@ -1,0 +1,2 @@
+kernel_args: []          # extra kernel options this machine needs, set in config/nodes.yml
+kernel_args_remove: []   # options to take off again
