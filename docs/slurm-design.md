@@ -293,7 +293,7 @@ Every routine admin task is a `./cluster` command. Each is plain code (Python pl
 | Billing | `billing report <month>`, `billing check` (ledger vs Slurm cross-check) |
 | Storage | `storage usage [<customer>]` |
 | Nodes and maintenance | `node status`, `node drain/resume <node> --reason …`, `node reboot <node>` (drain, wait for jobs, reboot, run checks, resume), `maintenance start/end`, `upgrade <node>` (OS, driver or Slurm; one node at a time) |
-| Software | ⚠️ pending Q10, probably not needed: customers install their own. Was: `software list`, `software install <name> <version>` (from a recipe in the repo, as an Lmod module), `software remove <name> <version>` |
+| Software | `software list`, `software build [name]` (whatever `config/versions.yml` pins and isn't built), `software check` (SOP-144) |
 | Packages | `mirror sync` (take a new dated snapshot), `mirror use <date>` (point the nodes at a snapshot) |
 | Health, tests, backups | `health` (one-screen status), `test [--quick\|--live]`, `backup run`, `backup verify` |
 
@@ -315,7 +315,7 @@ Every routine admin task is a `./cluster` command. Each is plain code (Python pl
 - ~~Q7. Credit expiry~~ → **decided:** 12 months, soonest-expiring first; no free trials (section 9).
 - **Q8.** A separate login host for customers before the first customer (at minimum a VM on anton)? Today customers would log into anton, which holds the money records, every key and the admin tools. The review rates this the biggest risk.
 - **Q9.** Keep customers' names and emails encrypted in the repo (Ansible Vault)? Today they'd be plain text in `customers.yml`, pushed to GitHub.
-- **Q10.** How much software do we install? (user, 2026-10-21: "we can just let them do everything right?")
+- ~~**Q10.** How much software do we install?~~ → **decided 2026-10-21:** a shared default stack in `/cluster/software`, free and read-only, on the RAID over NFS (option A). That's Miniforge, PyTorch and its container image, with modules, plus Apptainer and the base packages. Customers install everything else themselves, on top (SOP-143, SOP-144). The discussion is kept below.
   - **Recommendation:** customers install everything themselves: pip and venvs, conda or micromamba, their own CUDA (12.8 or newer, for these GPUs), and containers. We install only what needs root:
     - the NVIDIA driver
     - a fixed list of system packages on the login node and every GPU node: compilers, build tools and common libraries (most are already there)

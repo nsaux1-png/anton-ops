@@ -1,5 +1,5 @@
 # SOP-144: Shared software (`/cluster/software`)
-**Status:** draft 2026-10-21
+**Status:** proved 2026-10-21 ([ops log](../ops-log/2026-10-21-douglas1-setup.md))
 
 ## Purpose
 Software every customer can use without spending their own storage on it (decided 2026-10-21: "it's not fair to force people to use up 20 GB of their storage on software"). It lives on the RAID, and every node sees it over NFS. It's read-only for customers, and free.
@@ -47,4 +47,4 @@ Each stack is a conda environment (a Python of its own), not a venv. A venv made
 - Everything: remove the `shared_software` role from `ansible/site.yml`, then delete `/cluster/software/*` except the folder itself.
 
 ## History
-- 2026-10-21: first version.
+- 2026-10-21: first version. Built Miniforge 26.7.2-1, PyTorch 2.14.1 for CUDA 13.0 and the matching image in 270 s; 12 live tests. Proof run: Miniforge and all module files deleted, `check` failed, one `build` restored them.

@@ -153,3 +153,33 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
   1. Undid the settings on both machines: profile script, welcome message, module path and Apptainer bind. Also removed two harmless packages, `tree` and `screen`. I left compilers alone, since the NVIDIA driver's DKMS rebuilds need them.
   2. The tests failed, 9 failures, as expected.
   3. One apply (`20261021-213607-apply.log`) fixed everything. 12 of 12 again.
+
+## 8. Shared software, option A (SOP-144, new)
+- **Decided with the user:** shared software on the RAID (`/cluster/software`), read over NFS by every node, free for customers. Customers add their own packages on top.
+- **Design point:** each stack is a conda environment (Miniforge), not a Python venv. A venv made from a venv doesn't see the first venv's packages, so a customer's `python -m venv --system-site-packages` on top only works with a real base interpreter underneath.
+- **Pins** (`config/versions.yml`):
+  - Miniforge 26.7.2-1, with conda-forge's published SHA-256
+  - PyTorch 2.14.1 for CUDA 13.0, with torchvision 0.29.1
+  - `pytorch/pytorch:2.14.1-cuda13.0-cudnn9-runtime`, pinned by digest
+- **Why these:**
+  - 2.14.1 is the newest PyTorch release. It has builds for CUDA 12.6, 13.0 and 13.2: 12.6 can't run on Blackwell (it needs 12.8 or newer), and 13.2 needs a newer driver than R580, which tops out at CUDA 13.0.
+  - torchaudio is left out: its newest build, 2.11.0, is tied to an older torch.
+- **Code:**
+  - `clusterlib/software.py` (13 code tests) and the root tool `clusterlib/software_cli.py` (`cluster-software`)
+  - role `shared_software`, and `./cluster software list | build | check`
+- **Built:** `./cluster software build` (`20261021-213507-software.log`), 270 s, about 8 GB downloaded.
+  - Sizes: Miniforge 816 MB, PyTorch 5.5 GB, the image 3.1 GB.
+  - Module files: `pytorch/2.14.1-cu130` (the default) and `miniforge/26.7.2-1`, plus the README.
+- **`./cluster test --live -k test_software`: 12 of 12 on the first run.**
+  - PyTorch on a Blackwell GPU (capability 12.0, results match the CPU's), and two GPUs talking over NCCL.
+  - `import torch` in a job takes 1.6 s over NFS.
+  - A customer's venv on top sees both stacks, their own versions win, and it stays under 200 MB.
+  - The shared conda makes environments in the customer's folder, used in a job.
+  - The image runs with its GPU.
+  - Customers can't change the shared software or pip-install into it.
+- **Proof run:**
+  1. Deleted the Miniforge stack, every module file and the README. `check` found 2 problems.
+  2. One `build` rebuilt Miniforge from the pinned, checksum-checked installer, and republished everything (`20261021-214138-software.log`).
+  3. `check` passed, and the tests are 12 of 12 again.
+
+  PyTorch and the image weren't re-downloaded for the proof (7 GB over the shared office network). Their first build already came straight from the config.
