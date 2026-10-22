@@ -52,13 +52,14 @@ class ScratchDisk(unittest.TestCase):
 
 class PrivateTmp(unittest.TestCase):
     def test_a_jobs_tmp_is_its_own_on_the_scratch_disk(self):
-        r = in_job(A, "stat -c '%U %a' /tmp; ls -A /tmp | wc -l; df --output=source /tmp | tail -1; "
-                      "df --output=source /scratch | tail -1")
+        r = in_job(A, "stat -c '%U %a' /tmp; ls -A /tmp | wc -l; df --output=source /tmp | tail -1")
         self.assertEqual(r.returncode, 0, r.stderr)
-        owner_mode, count, tmp_source, scratch_source = r.stdout.strip().splitlines()[-4:]
+        owner_mode, count, tmp_source = r.stdout.strip().splitlines()[-3:]
         self.assertEqual(owner_mode, f"{A} 700")
         self.assertEqual(count, "0", "a job's /tmp starts empty")
-        self.assertEqual(tmp_source, scratch_source, "a job's /tmp is on the scratch disk")
+        # The scratch device itself: comparing with /scratch's own source would pass even with it unmounted.
+        device = run(NODES[0], f"readlink -f {var(NODES[0], 'scratch_device')}").stdout.strip()
+        self.assertEqual(tmp_source, device, "a job's /tmp is on the scratch disk")
 
     def test_two_customers_jobs_dont_see_each_others_tmp_or_shm(self):
         secret = f"cluster-test-{uuid.uuid4().hex[:8]}"
