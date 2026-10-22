@@ -112,6 +112,11 @@ In a job script: `source ~/envs/mine/bin/activate`, then `python train.py`.
 
 **Your own environment from scratch:** `module load miniforge`, then `conda create -p ~/envs/x python=3.11 ...`, or `pip` and `venv` with any Python. An environment in `/cluster/projects/<company>` is shared by your whole company and counts once.
 
+**Models and datasets from Hugging Face (and similar):** they keep big downloads in `~/.cache`.
+- To keep one copy for your whole company, put `export HF_HOME=/cluster/projects/<company>/hf-cache` in your `~/.bashrc`.
+- Download on the login node, for example `huggingface-cli download <model>`.
+- In job scripts, add `export HF_HUB_OFFLINE=1`, so the libraries use what's there instead of trying the internet.
+
 **Containers (Apptainer)**, for any Docker or NVIDIA image, without root:
 ```bash
 apptainer pull ~/myimage.sif docker://pytorch/pytorch:latest          # on the login node
