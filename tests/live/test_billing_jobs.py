@@ -167,9 +167,12 @@ class OutOfCredit(unittest.TestCase):
                                 seconds=150, every=5)
             self.assertTrue(warned, "the job's USR1 warning didn't arrive")
 
+            # Right after submitting, Slurm's reason is "None" until the scheduler has looked at the job.
             waiting = submit("--time=5 --gpus=1", "true")
-            reason = wait_until(lambda: run(HEAD, f"squeue -h -j {waiting} -o %r").stdout.strip() or None, seconds=60)
-            self.assertIn("QOSGrpBillingMinutes", reason or "", "a new job must wait for credit")
+            blocked = wait_until(lambda: "QOSGrpBillingMinutes" in run(HEAD, f"squeue -h -j {waiting} -o %r").stdout,
+                                 seconds=90)
+            self.assertTrue(blocked, "a new job must wait for credit: "
+                                     + run(HEAD, f"squeue -h -j {waiting} -o '%T %r'").stdout)
 
             time.sleep(60)
             self.assertEqual(state(job), "RUNNING", "Slurm must not kill the job over the limit")
