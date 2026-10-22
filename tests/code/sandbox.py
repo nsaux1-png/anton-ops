@@ -32,6 +32,13 @@ exit "${FAKE_EXIT:-0}"
 """
 
 
+# Stand-in for sudo: runs the command as the test runner, so nothing in the sandbox touches the real /etc.
+FAKE_SUDO = """#!/bin/bash
+echo "sudo $*" >> "$FAKE_CALLS"
+exec "$@"
+"""
+
+
 class Sandbox:
     def __init__(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -72,7 +79,7 @@ customers:
             self.write(name, "")
         bin_dir = os.path.join(base, "bin")
         os.mkdir(bin_dir)
-        for name, body in (("ansible-playbook", FAKE_PLAYBOOK), ("ansible", FAKE_ANSIBLE)):
+        for name, body in (("ansible-playbook", FAKE_PLAYBOOK), ("ansible", FAKE_ANSIBLE), ("sudo", FAKE_SUDO)):
             with open(os.path.join(bin_dir, name), "w") as f:
                 f.write(body)
             os.chmod(os.path.join(bin_dir, name), 0o755)
@@ -80,7 +87,9 @@ customers:
         os.mkdir(self.logs)
         self.calls = os.path.join(base, "calls")
         self.state = os.path.join(base, "applied")
+        self.test_keys = os.path.join(base, "test-keys")
         self.env = dict(os.environ, CLUSTER_LOG_DIR=self.logs, CLUSTER_SKIP_CODE_TESTS="1",
+                        CLUSTER_TEST_KEY_DIR=self.test_keys,
                         PYTHONDONTWRITEBYTECODE="1", FAKE_CALLS=self.calls, FAKE_STATE=self.state,
                         PATH=bin_dir + os.pathsep + os.environ["PATH"],
                         GIT_AUTHOR_NAME="test", GIT_AUTHOR_EMAIL="test@test",

@@ -103,6 +103,31 @@ class UserCommands(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertEqual(len(self.customers()[new[0]]["users"]), 1)
 
+    def test_a_test_customer_and_its_test_user(self):
+        r = self.cluster("customer", "add", "--test", "--name", "Test customer 2", "--storage-gb", "20", "--yes")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("c0002", self.customers(), "the lowest free test code")
+        self.assertIs(self.customers()["c0002"]["test"], True)
+        r = self.cluster("user", "add", "c0002", "--name", "Test user 2", "--email", "t2@localhost", "--yes")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        users = self.customers()["c0002"]["users"]
+        self.assertEqual(list(users), ["zz02"], "the lowest free test username")
+        key = users["zz02"]["ssh_key_file"]
+        self.assertTrue(key.startswith(self.box.test_keys), "the sandbox's own key folder, never /etc")
+        self.assertTrue(open(key).read().startswith("ssh-ed25519 "), "the apply's preparation made the key")
+        self.assertIn("zz02", self.uids()["users"])
+
+    def test_a_test_user_gets_a_generated_key_not_a_given_one(self):
+        r = self.cluster("user", "add", "c0001", "--name", "T", "--email", "t@localhost", "--key", KEY, "--yes")
+        self.assertEqual(r.returncode, 2, r.stdout)
+        self.assertIn("generated key", r.stdout)
+
+    def test_real_customers_keep_random_codes_and_usernames(self):
+        self.assertEqual(self.cluster("customer", "add", "--name", "Real Co", "--yes").returncode, 0)
+        new = [c for c in self.customers() if c not in ("c0001", "c4821")]
+        self.assertGreaterEqual(int(new[0][1:]), 100)
+        self.assertNotIn("test", self.customers()[new[0]])
+
     def test_uncommitted_changes_block_config_changes(self):
         self.box.write("config/customers.yml", self.box.read("config/customers.yml") + "# hand edit\n")
         r = self.cluster("user", "suspend", "kx47", "--yes")

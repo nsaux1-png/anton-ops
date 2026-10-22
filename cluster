@@ -322,7 +322,7 @@ def cmd_build(args, log):
 
 # --- customers and users -----------------------------------------------------
 
-TEST_KEY_DIR = "/etc/cluster/test-keys"
+TEST_KEY_DIR = os.environ.get("CLUSTER_TEST_KEY_DIR", "/etc/cluster/test-keys")   # the sandbox uses its own
 
 
 def commit(log, message, paths):
@@ -416,8 +416,16 @@ def read_key(args):
 
 def cmd_user_add(args, log):
     config = cfg.load()
-    username = cfg.new_username(cfg.all_usernames(config, cfg.load_uids()))
-    fields = {"name": args.name, "email": args.email, "ssh_key": read_key(args)}
+    taken = cfg.all_usernames(config, cfg.load_uids())
+    if (config["customers"].get(args.customer) or {}).get("test"):
+        # Test customers' users are zz01-zz99, with a key the next apply makes (prepare_config).
+        if args.key or args.key_file:
+            raise Refused("Test users get a generated key: leave out --key and --key-file.")
+        username = cfg.new_test_username(taken)
+        fields = {"name": args.name, "email": args.email, "ssh_key_file": f"{TEST_KEY_DIR}/{username}.pub"}
+    else:
+        username = cfg.new_username(taken)
+        fields = {"name": args.name, "email": args.email, "ssh_key": read_key(args)}
     if args.manager:
         fields["role"] = "manager"
     if args.max_gpus is not None:
@@ -456,8 +464,11 @@ def cmd_user_status(status):
 
 def cmd_customer_add(args, log):
     config = cfg.load()
-    code = cfg.new_customer_code(set(config["customers"]) | set(cfg.load_uids()["groups"]))
+    taken = set(config["customers"]) | set(cfg.load_uids()["groups"])
+    code = cfg.new_test_customer_code(taken) if args.test else cfg.new_customer_code(taken)
     fields = {"name": args.name}
+    if args.test:
+        fields["test"] = True
     if args.billing_email:
         fields["billing_email"] = args.billing_email
     if args.storage_gb is not None:
@@ -628,6 +639,8 @@ def build_parser():
     p = sub.add_parser("customer", help="customers: add, set, list")
     customers = p.add_subparsers(dest="action", required=True, metavar="action")
     q = customers.add_parser("add", help="add a customer (picks the code)")
+    q.add_argument("--test", action="store_true",
+                   help="a test customer (c0001-c0099): its users are zz01-zz99 with generated keys; never invoiced")
     q.add_argument("--name", required=True)
     q.add_argument("--billing-email")
     q.add_argument("--storage-gb", type=int, help="storage limit in GiB (default: defaults.storage_gb)")

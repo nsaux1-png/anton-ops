@@ -208,6 +208,22 @@ def new_customer_code(taken, rng=random):
     raise ConfigError("couldn't find a free customer code")
 
 
+def new_test_customer_code(taken):
+    """The lowest unused test customer code, c0001-c0099."""
+    for n in range(1, TEST_CUSTOMER_MAX + 1):
+        if f"c{n:04d}" not in taken:
+            return f"c{n:04d}"
+    raise ConfigError("no free test customer codes (c0001-c0099)")
+
+
+def new_test_username(taken):
+    """The lowest unused test username, zz01-zz99."""
+    for n in range(1, 100):
+        if f"{TEST_USER_PREFIX}{n:02d}" not in taken:
+            return f"{TEST_USER_PREFIX}{n:02d}"
+    raise ConfigError("no free test usernames (zz01-zz99)")
+
+
 def all_usernames(config, uids):
     """Every username ever used: current users and everyone who ever had a UID."""
     names = set(uids["users"])
