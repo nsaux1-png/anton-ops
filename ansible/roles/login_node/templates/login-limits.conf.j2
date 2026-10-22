@@ -1,0 +1,7 @@
+# Managed by Ansible (ansible/roles/login_node), SOP-145.
+# {{ item.username }} ({{ item.customer }}) on the login node: enough to install, edit and submit jobs.
+[Slice]
+CPUQuota={{ login_cpu_percent }}%
+MemoryMax={{ login_memory }}
+MemorySwapMax=0
+TasksMax={{ login_tasks }}

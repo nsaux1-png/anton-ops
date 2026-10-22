@@ -36,9 +36,9 @@ class ScratchDisk(unittest.TestCase):
         2026-10-21 /scratch was mounted only there."""
         for node in NODES:
             device = run(node, f"readlink -f {var(node, 'scratch_device')}").stdout.strip()
-            for who, pid in (("host", "1"), ("slurmd", "$(pidof slurmd)")):
+            for who, pid in (("host", "1"), ("slurmd", "$(pidof slurmd)")):   # pidof under sudo: our own session hides root's processes
                 with self.subTest(node=node, namespace=who):
-                    out = run(node, f"sudo nsenter -t {pid} -m findmnt -n -o SOURCE,FSTYPE /scratch").stdout.split()
+                    out = run(node, f"sudo sh -c 'nsenter -t {pid} -m findmnt -n -o SOURCE,FSTYPE /scratch'").stdout.split()
                     self.assertEqual(out, [device, "xfs"])
                 self.assertIn("nofail", run(node, "findmnt -s -n -o OPTIONS /scratch").stdout,
                               "a dead scratch disk mustn't stop the node from booting")

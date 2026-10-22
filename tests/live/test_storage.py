@@ -69,7 +69,7 @@ class StorageOnComputeNodes(unittest.TestCase):
                 with self.subTest(node=node):
                     # On the host and in slurmd, not just in this SSH session's own mount namespace (ProtectProc).
                     for pid in ("1", "$(pidof slurmd)"):
-                        r = run(node, f"sudo nsenter -t {pid} -m findmnt -no FSTYPE /cluster")
+                        r = run(node, f"sudo sh -c 'nsenter -t {pid} -m findmnt -no FSTYPE /cluster'")
                         self.assertEqual(r.stdout.strip(), "nfs4", f"namespace of pid {pid}")
                     path = marker.replace("/raiddrive/cluster", "/cluster")
                     self.assertEqual(run(node, f"test -e {path}").returncode, 0)

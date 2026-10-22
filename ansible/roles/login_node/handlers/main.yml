@@ -1,0 +1,7 @@
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+# Replaces the rules in one step (see the rules file), so there's no moment without them.
+- name: Load the login network rules
+  ansible.builtin.command: /usr/sbin/nft -f /etc/nftables/cluster-login-egress.nft

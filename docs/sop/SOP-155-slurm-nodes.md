@@ -36,6 +36,7 @@ A core and the memory beyond `gpu_slots` × 20 GB are kept for the system (`Core
 2. `./cluster apply --dry-run`, then `./cluster apply`.
 3. From a **new** terminal, log in to the node as yourself. If that fails, use the spare session (see "If something goes wrong").
 4. `sinfo -N`: the node should be `idle`. If it's `drained` or `inval` with an old reason, fix the reason, then `sudo scontrol update nodename=<node> state=resume`.
+   - **After raising a node's figures in `config/nodes.yml`** (memory, `TmpDisk`), expect one "Low …" drain. The controller gets the new figures first, and the old slurmd re-registers before it restarts. If `slurmd -C` on the node now shows enough, resume it. This isn't automated, because the same reason is how Slurm reports real loss, like a failed memory stick.
 5. `./cluster test --live -k test_slurm_node`
 
 ## Checks

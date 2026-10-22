@@ -1,0 +1,18 @@
+# Managed by Ansible (ansible/roles/login_node), SOP-145.
+# Loads the login node's network rules for customer accounts before the network comes up.
+[Unit]
+Description=Network rules for customer accounts on the login node (SOP-145)
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables/cluster-login-egress.nft
+ExecReload=/usr/sbin/nft -f /etc/nftables/cluster-login-egress.nft
+ExecStop=/usr/sbin/nft delete table inet cluster_login_egress
+
+[Install]
+WantedBy=multi-user.target

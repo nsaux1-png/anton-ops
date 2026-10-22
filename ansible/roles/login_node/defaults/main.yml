@@ -1,0 +1,9 @@
+# What one customer user may use on the login node (SOP-145). It's for installing, editing and submitting
+# jobs; the work itself runs in jobs. anton is also the head node, with the billing database and the Slurm
+# controller on 31 GB of RAM, so no one customer can take it over.
+login_cpu_percent: 400        # 4 cores
+login_memory: 6G
+login_tasks: 512
+# Ports on this machine that customers may not reach, since it serves admin tools too: the admin proxy,
+# MariaDB, Cockpit, NFS and its helpers, mail.
+login_blocked_local_ports: [3128, 3306, 9090, 2049, 111, 20048, 25]

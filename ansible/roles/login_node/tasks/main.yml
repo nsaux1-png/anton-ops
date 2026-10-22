@@ -1,0 +1,54 @@
+# The login node (SOP-145): limits for each customer user, and network rules for customer accounts. They
+# keep the internet (installs, downloads) and SSH and Slurm on the compute nodes, but not the office network,
+# other private ranges, the cluster's BMCs or this machine's admin services. SSH tunnels run as the customer,
+# so the same rules cover them.
+- name: Folder for each customer user's limits
+  ansible.builtin.file:
+    path: "/etc/systemd/system/user-{{ item.uid }}.slice.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ accounts.users }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Each customer user's limits on the login node
+  ansible.builtin.template:
+    src: login-limits.conf.j2
+    dest: "/etc/systemd/system/user-{{ item.uid }}.slice.d/50-cluster-login.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ accounts.users }}"
+  loop_control:
+    label: "{{ item.username }}"
+  notify: Reload systemd
+
+- name: Network rules for customer accounts on the login node
+  ansible.builtin.template:
+    src: cluster-login-egress.nft.j2
+    dest: /etc/nftables/cluster-login-egress.nft
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/nft -c -f %s
+  notify: Load the login network rules
+
+- name: Service that loads them at boot
+  ansible.builtin.copy:
+    src: cluster-login-egress.service
+    dest: /etc/systemd/system/cluster-login-egress.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: login_egress_unit
+
+# In a preview of the first run the service doesn't exist yet, so this waits.
+- name: Load them now and at boot
+  ansible.builtin.systemd:
+    name: cluster-login-egress
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and login_egress_unit is changed)

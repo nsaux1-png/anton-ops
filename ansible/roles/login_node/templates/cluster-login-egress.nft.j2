@@ -1,0 +1,28 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible (ansible/roles/login_node), SOP-145. Local edits are overwritten.
+# Customer accounts (UID {{ customer_uid_min }} and up) on the login node: the internet, and on the cluster
+# network only SSH into their own jobs and srun to slurmd. Not the office network or any other private range,
+# not the BMCs, not this machine's admin services. SSH tunnels run as the customer, so these rules cover
+# them too. Root and admin accounts aren't limited.
+
+# Replace the whole table in one step, so the rules are never half-loaded.
+table inet cluster_login_egress
+delete table inet cluster_login_egress
+
+table inet cluster_login_egress {
+	chain output {
+		type filter hook output priority filter; policy accept;
+		meta skuid >= {{ customer_uid_min }} jump customer
+	}
+
+	chain customer {
+		ct state established,related accept
+		oif "lo" tcp dport { {{ login_blocked_local_ports | join(', ') }} } counter reject with tcp reset
+		oif "lo" accept
+		ip daddr {{ cluster_network }} tcp dport { 22, 6818 } accept
+		ip daddr {{ cluster_network }} counter reject with icmpx type admin-prohibited
+		ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 } counter reject with icmpx type admin-prohibited
+		ip6 daddr { fc00::/7, fe80::/10 } counter reject with icmpx type admin-prohibited
+		accept
+	}
+}
