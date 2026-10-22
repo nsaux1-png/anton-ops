@@ -1,9 +1,7 @@
 # Slurm on compute nodes (SOP-155): slurmd, GPUs found through NVIDIA's library, logins only for users
 # with a job on the node (pam_slurm_adopt; admins exempt), and job processes hidden from each other.
-#
-# ⚠️ NOT YET IN site.yml. Prepared on 2026-10-20 while douglas1 was down; untested. Wire it in (compute
-# play, after slurm_common) only with douglas1 up, the NVIDIA driver working, and a second SSH session
-# to douglas1 open, so a mistake in the login rules can be undone (todo: "When douglas1 is back").
+# Applied to a node only with a spare SSH session to it open, so a mistake in the login rules can be
+# undone through it (SOP-155).
 - name: Cluster zone on the node
   ansible.posix.firewalld:
     zone: cluster
@@ -74,13 +72,19 @@
     mode: "0644"
   notify: Restart Slurm daemons
 
+- name: PMIx, which Slurm's MPI plugin loads (srun --mpi=pmix)
+  ansible.builtin.dnf:
+    name: pmix
+    state: present
+  notify: Restart Slurm daemons
+
 - name: Run slurmd now and at boot
   ansible.builtin.systemd:
     name: slurmd
     enabled: true
     state: started
     daemon_reload: true
-  when: not ansible_check_mode
+  when: not (ansible_check_mode and (slurm_packages is changed or slurm_packages is skipped))   # first-run preview
 
 # Admins (group wheel) skip the check; everyone else needs a running job on this node to log in, and
 # their login is put inside that job (so it's limited and billed like the job).

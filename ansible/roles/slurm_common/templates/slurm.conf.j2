@@ -8,6 +8,9 @@ AuthType=auth/munge
 CredType=cred/munge
 SlurmctldPort=6817
 SlurmdPort=6818
+# Slurm 26.05's daemons also answer HTTP on these ports. We don't use it, and the parser it needs
+# isn't built (only slurmrestd requires it), so it's off.
+CommunicationParameters=disable_http
 SrunPortRange={{ slurm_srun_ports }}
 StateSaveLocation=/var/spool/slurmctld
 SlurmdSpoolDir=/var/spool/slurmd

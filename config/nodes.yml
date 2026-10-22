@@ -55,5 +55,7 @@ all:
               slurm_sockets: 1
               slurm_cores_per_socket: 56
               slurm_threads_per_core: 2
-              slurm_real_memory_mb: 257000  # TO CONFIRM with slurmd -C when douglas1 is back
+              slurm_real_memory_mb: 257000  # slurmd -C: 257056 (2026-10-21); a little lower, so a small change
+                                            # in what the kernel keeps doesn't invalidate the node
+              slurm_gpu_type: nvidia_geforce_rtx_5070_ti   # as NVML names it (slurmd -C, 2026-10-21)
               slurm_core_spec_count: 1      # one core for the system

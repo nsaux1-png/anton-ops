@@ -8,13 +8,14 @@
     owner: root
     group: root
     mode: "0644"
+  register: nvidia_key_file
 
 - name: Trust NVIDIA's signing key
   ansible.builtin.rpm_key:
     key: /etc/pki/rpm-gpg/RPM-GPG-KEY-nvidia-cuda
     fingerprint: "{{ nvidia_repo_key_fingerprint }}"
     state: present
-  when: not ansible_check_mode
+  when: not (ansible_check_mode and nvidia_key_file is changed)   # a first-run preview: no key file yet
 
 - name: NVIDIA's repository
   ansible.builtin.template:

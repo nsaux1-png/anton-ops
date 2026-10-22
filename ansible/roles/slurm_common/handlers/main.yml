@@ -4,10 +4,10 @@
     state: restarted
   when: not (ansible_check_mode and munge_package is changed)   # a first-run preview: not installed yet
 
-# Running jobs survive both: their processes belong to slurmstepd, not to these daemons.
+# Running jobs survive both: their processes belong to slurmstepd, not to these daemons. try-restart
+# leaves a stopped daemon stopped: starting it is for the role that sets it up (slurm_controller,
+# slurm_node), once everything it needs is in place. A plain restart started slurmd on douglas1
+# before its firewall, GPU settings and login rules (ops log 2026-10-21-douglas1-setup).
 - name: Restart Slurm daemons
-  ansible.builtin.systemd:
-    name: "{{ 'slurmctld' if 'head' in group_names else 'slurmd' }}"
-    state: restarted
+  ansible.builtin.command: systemctl try-restart {{ 'slurmctld' if 'head' in group_names else 'slurmd' }}
   when: not ansible_check_mode
-  failed_when: false        # not started yet on a first run; the role that starts it comes later

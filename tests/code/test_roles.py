@@ -6,8 +6,13 @@ and the apply never runs (found by SOP-107's proof run, 2026-10-21). So each one
 - read-only (changed_when: false)
 - run in the preview itself (check_mode: false), the tool doing its own --check
 - guarded by creates/removes, which check mode reports
-- explicitly real-run only (when: not ansible_check_mode), with the reason in a comment
+- explicitly real-run only (when: not ansible_check_mode), which the second rule covers
 - gated on a check task that reports the pending change in check mode (changed_when: ansible_check_mode and ...)
+
+Second rule, for any module: a task that runs only for real must follow a change the preview shows
+("... is changed and not ansible_check_mode"), only wait, or be listed in REAL_RUN_ONLY with the reason.
+The usual first-run guard, "not (ansible_check_mode and X is changed)", still runs in later previews.
+Handlers are exempt: one runs only when a task notifies it, and that task shows in the preview.
 """
 
 import glob
@@ -19,6 +24,13 @@ import yaml
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 COMMANDS = {"ansible.builtin.command", "ansible.builtin.shell", "command", "shell"}
+WAITS = {"ansible.builtin.wait_for", "wait_for"}
+REAL_RUN_ONLY = {
+    ("billing", "Ledger tables"): "follows the billing code the preview shows; only adds missing tables",
+    ("billing", "Prices and Slurm credit limits"): "follows the config the preview shows; the hourly run repeats it",
+    ("nvidia_driver", "Reboot to load the driver (only where nvidia_driver_auto_reboot is true)"):
+        "a reboot is never previewed; off by default (ops log 2026-10-19-step2-gpu-driver)",
+}
 
 
 class RoleLoader(yaml.SafeLoader):
@@ -63,6 +75,28 @@ def blind_tasks(tasks):
     return blind
 
 
+def real_run_only(role, tasks):
+    """Names of tasks that run only for real, without a reason the preview can do without them."""
+    found = []
+    for t in flatten(tasks):
+        when = text(t.get("when"))
+        if not re.search(r"\bnot ansible_check_mode\b", when):
+            continue
+        if "is changed" in when or any(k in WAITS for k in t) or (role, t.get("name")) in REAL_RUN_ONLY:
+            continue
+        found.append(t.get("name", "(unnamed)"))
+    return found
+
+
+def role_files(kind):
+    return sorted(glob.glob(os.path.join(REPO, "ansible", "roles", "*", kind, "*.yml")))
+
+
+def load(path):
+    with open(path) as f:
+        return yaml.load(f, Loader=RoleLoader)
+
+
 class PreviewSeesEveryCommand(unittest.TestCase):
     def test_every_role(self):
         files = sorted(glob.glob(os.path.join(REPO, "ansible", "roles", "*", "tasks", "*.yml")))
@@ -71,6 +105,23 @@ class PreviewSeesEveryCommand(unittest.TestCase):
             with self.subTest(file=os.path.relpath(path, REPO)):
                 with open(path) as f:
                     self.assertEqual(blind_tasks(yaml.load(f, Loader=RoleLoader)), [])
+
+    def test_tasks_that_run_only_for_real_have_a_reason(self):
+        for path in role_files("tasks"):
+            role = path.split(os.sep)[-3]
+            with self.subTest(file=os.path.relpath(path, REPO)):
+                self.assertEqual(real_run_only(role, load(path)), [])
+
+    def test_the_second_rule_catches_an_unexplained_real_run_only_task(self):
+        tasks = [
+            {"name": "start it", "ansible.builtin.systemd": {"name": "x"}, "when": "not ansible_check_mode"},
+            {"name": "after a change", "ansible.builtin.service": {"name": "x"},
+             "when": "zone is changed and not ansible_check_mode"},
+            {"name": "first-run guard", "ansible.builtin.systemd": {"name": "x"},
+             "when": "not (ansible_check_mode and pkg is changed)"},
+            {"name": "wait", "ansible.builtin.wait_for": {"port": 1}, "when": "not ansible_check_mode"},
+        ]
+        self.assertEqual(real_run_only("somerole", tasks), ["start it"])
 
     def test_the_check_catches_a_blind_task(self):
         tasks = [
