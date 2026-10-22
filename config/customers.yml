@@ -56,4 +56,9 @@ customers:
     billing_email: "test-c0003@localhost"
     storage_gb: 25
     max_gpus: 2
-    users: {}
+    users:
+      zz05:
+        name: "Test user 5"
+        email: "test-zz05@localhost"
+        ssh_key_file: "/etc/cluster/test-keys/zz05.pub"
+        role: "manager"
