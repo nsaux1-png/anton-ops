@@ -20,7 +20,9 @@ Users log into anton and submit jobs. Every job is recorded in Slurm's accountin
 
 | Path | Contents |
 |---|---|
-| `docs/user-guide.md` | The guide for customers (draft) |
+| `docs/status.md` | **Where things stand**: what customers get, how to add one, what's left |
+| `docs/user-guide.md` | The guide for customers (published on the login node at `/cluster/docs/guide.md`) |
+| `docs/code-index.md` | Every command, library, role, installed tool, script and test folder |
 | `docs/build-plan.md` | **Step-by-step build plan**: what gets done, which SOP, what needs you, status |
 | `docs/plan.md` | The full plan (draft, decisions D1–D46 being worked through) |
 | `docs/slurm-design.md` | Overall Slurm design from the user's requirements (draft) |
