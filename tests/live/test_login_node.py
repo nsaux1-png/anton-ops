@@ -22,6 +22,20 @@ with open(os.path.join(REPO, "ansible", "roles", "login_node", "defaults", "main
     LIMITS = yaml.safe_load(f)
 
 
+def rejected():
+    """Packets the login node's customer rules have refused so far (all their counters together)."""
+    out = run(LOGIN, "sudo nft list table inet cluster_login_egress").stdout
+    return sum(int(n) for n in __import__("re").findall(r"counter packets (\d+)", out))
+
+
+def refused_by_the_rules(address, port):
+    """True if a customer's connection to address:port fails *and* the rules counted it. A port nobody
+    listens on fails anyway, so failing alone proves nothing."""
+    before = rejected()
+    failed = not can_connect(LOGIN, address, port, customer=True, seconds=3)
+    return failed and rejected() > before
+
+
 def ssh_with_key(user, args, timeout=60):
     """ssh as a test user with their test key, with any extra ssh arguments (tunnels, jumps)."""
     with tempfile.TemporaryDirectory() as d:
@@ -55,23 +69,24 @@ class CustomersReach(unittest.TestCase):
 
 class CustomersDontReach(unittest.TestCase):
     def test_the_office_network(self):
-        self.assertFalse(can_connect(LOGIN, OFFICE_GATEWAY, 80, customer=True))
-        self.assertFalse(can_connect(LOGIN, OFFICE_GATEWAY, 443, customer=True))
+        for port in (80, 443, 53):
+            with self.subTest(port=port):
+                self.assertTrue(refused_by_the_rules(OFFICE_GATEWAY, port))
 
     def test_other_private_ranges_and_link_local(self):
         for address in ("10.0.0.1", "192.168.0.1", "169.254.169.254", "172.16.99.200"):
             with self.subTest(address=address):
-                self.assertFalse(can_connect(LOGIN, address, 80, customer=True, seconds=3))
+                self.assertTrue(refused_by_the_rules(address, 80))
 
     def test_the_rest_of_the_cluster_network(self):
-        self.assertFalse(can_connect(LOGIN, NODE_IP, 111, customer=True))        # rpcbind
-        self.assertFalse(can_connect(LOGIN, NODE_IP, 9090, customer=True))       # Cockpit
+        self.assertTrue(refused_by_the_rules(NODE_IP, 111))        # rpcbind
+        self.assertTrue(refused_by_the_rules(NODE_IP, 9090))       # Cockpit
 
     def test_this_machines_admin_services(self):
         for port in LIMITS["login_blocked_local_ports"]:
             for address in ("127.0.0.1", var(HEAD, "cluster_ip")):
                 with self.subTest(address=address, port=port):
-                    self.assertFalse(can_connect(LOGIN, address, port, customer=True))
+                    self.assertTrue(refused_by_the_rules(address, port))
 
     def test_admins_are_not_limited(self):
         self.assertTrue(can_connect(LOGIN, "127.0.0.1", 3306))
