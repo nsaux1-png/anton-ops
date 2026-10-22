@@ -44,6 +44,12 @@
     - backup
     - test_schedule
 
+- name: Login nodes
+  hosts: login_nodes
+  become: true
+  roles:
+    - login_node
+
 - name: Compute nodes
   hosts: compute
   become: true
