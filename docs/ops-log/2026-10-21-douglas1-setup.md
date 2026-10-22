@@ -126,3 +126,18 @@ douglas1 is back (ops log [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md
   - **Applied to anton** (`20261021-184326-apply.log`): the real ledger is migrated (column unsigned, version 2, the clamped row gone). Hourly billing then charged every one of today's test jobs.
   - `cluster-billing check 2026-10`: 27 finished jobs checked, the ledger agrees with Slurm.
 - `./cluster health` now also checks munge and slurmd on compute nodes, and on GPU nodes that every GPU is there with no Xid, fallen-off-the-bus or PCIe hardware errors since boot (SOP-171).
+- **Real-job billing tests, `tests/live/test_billing_jobs.py`: 4 of 4 pass.**
+  - An earlier run was cut off when the session ended. The test's clean-up had already run: c0002's credit was back, with each test adjustment paired with its "-back" entry, and no jobs were left.
+  - The grace test then failed once, because of a bug in the test itself: it read Slurm's first "None" reason, given before the scheduler had looked at the job. Slurm's records showed that job never started. Fixed to wait for `QOSGrpBillingMinutes`.
+  - The full grace run then passed (697 s), confirming each step: time limit cut to now + 10 minutes, the `USR1` warning delivered, new jobs held for credit, no kill by Slurm over the limit ("safe", as Slurm's docs say), a TIMEOUT stop at the new limit, and the grace minutes charged.
+
+## 6. Plan for the rest of the session (user away; "push forward", option A for shared software)
+1. Base user environment on the login node and GPU nodes: compilers, Python 3.12, common libraries, Apptainer, `module`, a welcome message, and customers' temporary files kept in their own space.
+2. Shared software in `/cluster/software` (option A): a PyTorch environment and a matching container image, built by a script in the repo, with module files.
+3. Per-job private `/tmp` and `/dev/shm` on douglas1's new 4 TB NVMe (D5).
+4. Login node: per-user CPU and memory limits for customers (anton has 31 GB of RAM and runs the billing database and Slurm controller), and customers kept off the office network and the cluster's admin services.
+5. A third test customer added with the real onboarding commands (SOP-210's live proof), with room for software tests.
+6. New-user tests: installing software, containers, first jobs, common mistakes.
+7. User guide, SOPs, code index, then a full test run.
+
+Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the one-hour full-load GPU test (someone near the machine), SSH lockdown (1.6), alerts (D34), off-site backups (D39).
