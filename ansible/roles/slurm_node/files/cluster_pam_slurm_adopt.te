@@ -1,0 +1,20 @@
+# Managed by Ansible (ansible/roles/slurm_node), SOP-155.
+# pam_slurm_adopt runs inside sshd (sshd_t). To find a user's jobs on this node it opens the job steps'
+# sockets in slurmd's spool folder (var_spool_t), and asks slurmstepd (unconfined_service_t) to put the
+# login into the job. Without this, every login with a job was refused ("no active jobs"). Adapted from
+# the example in Slurm's pam_slurm_adopt documentation, with the denials read from douglas1's audit log
+# (2026-10-21).
+module cluster_pam_slurm_adopt 1.0;
+
+require {
+	type sshd_t;
+	type var_spool_t;
+	type unconfined_service_t;
+	class dir { getattr open read search };
+	class sock_file { getattr write };
+	class unix_stream_socket connectto;
+}
+
+allow sshd_t var_spool_t:dir { getattr open read search };
+allow sshd_t var_spool_t:sock_file { getattr write };
+allow sshd_t unconfined_service_t:unix_stream_socket connectto;

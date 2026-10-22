@@ -97,6 +97,45 @@
     daemon_reload: true
   when: not (ansible_check_mode and (slurm_packages is changed or slurm_packages is skipped))   # first-run preview
 
+# SELinux keeps sshd from reaching the job steps' sockets, which pam_slurm_adopt needs: a small policy
+# module allows exactly that (files/cluster_pam_slurm_adopt.te).
+- name: Folder for our SELinux policy sources
+  ansible.builtin.file:
+    path: /usr/local/share/cluster/selinux
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: ansible_selinux.status == "enabled"
+
+- name: SELinux rules for pam_slurm_adopt (source)
+  ansible.builtin.copy:
+    src: cluster_pam_slurm_adopt.te
+    dest: /usr/local/share/cluster/selinux/cluster_pam_slurm_adopt.te
+    owner: root
+    group: root
+    mode: "0644"
+  register: adopt_policy_source
+  when: ansible_selinux.status == "enabled"
+
+- name: Which SELinux policy modules are loaded
+  ansible.builtin.command: semodule -l
+  register: selinux_modules
+  changed_when: ansible_check_mode and 'cluster_pam_slurm_adopt' not in selinux_modules.stdout_lines
+  check_mode: false
+  when: ansible_selinux.status == "enabled"
+
+- name: Build and load the SELinux rules for pam_slurm_adopt
+  ansible.builtin.shell: |
+    set -euo pipefail
+    d=$(mktemp -d); trap 'rm -rf "$d"' EXIT
+    checkmodule -M -m -o "$d/cluster_pam_slurm_adopt.mod" /usr/local/share/cluster/selinux/cluster_pam_slurm_adopt.te
+    semodule_package -o "$d/cluster_pam_slurm_adopt.pp" -m "$d/cluster_pam_slurm_adopt.mod"
+    semodule -i "$d/cluster_pam_slurm_adopt.pp"
+  when: >-
+    ansible_selinux.status == "enabled" and
+    (adopt_policy_source is changed or 'cluster_pam_slurm_adopt' not in selinux_modules.stdout_lines)
+
 # password-auth's account part ends with "sufficient pam_localuser.so". Pulled in with "include", that
 # ends the whole check for every local user before pam_slurm_adopt, so customers got in without a job
 # (live tests, 2026-10-21). As a substack it ends only password-auth's part.

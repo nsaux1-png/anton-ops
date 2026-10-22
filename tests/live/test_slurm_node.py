@@ -53,6 +53,13 @@ def background_job(user, options, seconds=300):
     raise AssertionError(f"background job didn't start: {r.stdout}{r.stderr}")
 
 
+def sshd_denials(node, since):
+    """SELinux denials for sshd on a node since a time (seconds since 1970), from the audit log."""
+    out = run(node, f"sudo awk -v t={since} 'match($0, /audit\\(([0-9]+)\\./, m) && m[1] >= t "
+                    f"&& /denied/ && /comm=\"sshd-session\"/' /var/log/audit/audit.log").stdout
+    return out.splitlines()
+
+
 def cancel(job):
     if job:
         run(HEAD, f"sudo scancel {job}")
@@ -190,12 +197,21 @@ class NodeLogins(unittest.TestCase):
         job = background_job(A, "--gpus=1")
         try:
             node = run(HEAD, f"squeue -h -j {job} -o %N").stdout.strip()
+            since = int(run(node, "date +%s").stdout)
             r = ssh_login(A, "cat /proc/self/cgroup", host=node)
             self.assertEqual(r.returncode, 0, r.stderr)
             # Adopted logins go into the job's "extern" step, under slurmstepd.
             self.assertRegex(r.stdout, r"/slurmstepd\.scope/[^/]+/step_extern/")
+            self.assertEqual(sshd_denials(node, since), [])
         finally:
             cancel(job)
+
+    def test_selinux_rules_for_it_are_loaded(self):
+        for node in NODES:
+            with self.subTest(node=node):
+                if run(node, "getenforce").stdout.strip() == "Disabled":
+                    continue
+                self.assertIn("cluster_pam_slurm_adopt", run(node, "sudo semodule -l").stdout.split())
 
 
 if __name__ == "__main__":
