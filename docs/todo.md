@@ -24,7 +24,9 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Claude:** A supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry), only after COP-44.
 - [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
 - [x] **Claude:** A full `./cluster apply` on douglas1: accounts, logins, `/cluster` over NFS (2026-10-21). Live suite 116/116, 1 skipped. Slurm packages come with `slurm_node`.
-- [ ] **Claude:** Wire in `slurm_node` (prepared, untested: slurmd, NVML, `pam_slurm_adopt`, hidden job processes). Test logins with and without a job, as admin and as a test user.
+- [x] **Claude:** Wire in `slurm_node` (2026-10-21, SOP-155): slurmd, NVML, `pam_slurm_adopt` (substack + SELinux module), hidden job processes. Logins tested with and without a job, as admin and as a test user. 16/16.
+- [ ] **Claude:** SOP-155 proof run: undo on douglas1, rebuild with one apply, tests again.
+- [ ] **Claude + you:** Slurm can't send job emails: no mail program on anton (`Configured MailProg is invalid` in slurmctld's log). Decide with D34 (alerts).
 - [ ] **Claude:** GPU job tests, the skipped per-user GPU limit test, real-job charging, running out of credit → grace → stop, and the GPU check program on every GPU.
 - [ ] **you + Claude:** The one-hour full-load test (D47).
 

@@ -33,6 +33,7 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-171](SOP-171-health.md) | Cluster health at a glance (`./cluster health`) | first version 2026-10-20 |
 | [SOP-181](SOP-181-backups.md) | Backups | proved 2026-10-20 (off-site still to come) |
 | [SOP-191](SOP-191-weekly-tests.md) | The weekly test run | timer installed 2026-10-20 |
+| [SOP-155](SOP-155-slurm-nodes.md) | Slurm on GPU nodes | applied and tested on douglas1 2026-10-21; proof run to do |
 | [SOP-201](SOP-201-os-updates.md) | OS updates on compute nodes (`./cluster upgrade`) | proved 2026-10-19 on douglas1 |
 | [SOP-210](SOP-210-customers-and-users.md) | Adding and changing customers and users | commands tested in a sandbox |
 

@@ -1,5 +1,5 @@
 # SOP-155: Slurm on GPU nodes
-**Status:** draft 2026-10-21
+**Status:** applied and tested on douglas1 2026-10-21 (16/16); proof run (undo, then rebuild) to do
 
 ## Purpose
 A GPU node runs customers' jobs and nothing else:
@@ -8,6 +8,8 @@ A GPU node runs customers' jobs and nothing else:
 - **Job processes see only their own user's processes.** `slurmd` runs with systemd's `ProtectProc=invisible`, as `sshd` does (SOP-142).
 - **Jobs can't reach the internet, the office network or the admin proxy.** They run under customer UIDs, which the node's egress rules stop (SOP-104).
 - **Customers log in to a node only while they have a job there** (`pam_slurm_adopt`). The login is put inside that job, so it's limited and billed like the job. Admins (group `wheel`) always get in. `pam_systemd` is off on nodes, because it would move adopted logins out of the job.
+  - sshd pulls in `password-auth` as a **substack**: with `include`, its `sufficient pam_localuser.so` ended the check before `pam_slurm_adopt`.
+  - With SELinux enforcing, the `cluster_pam_slurm_adopt` policy module lets sshd reach the job steps (`files/cluster_pam_slurm_adopt.te`).
 - **Firewall:** a `cluster` zone for the cluster network with SSH, `slurmd` (6818) and the `srun` port range. `srun` inside a job script listens there for multi-node jobs.
 - **PMIx** for MPI jobs (`srun --mpi=pmix`).
 
@@ -53,6 +55,11 @@ A core and the memory beyond `gpu_slots` × 20 GB are kept for the system (`Core
   1. Through the spare session: `sudo firewall-cmd --zone=cluster --add-service=ssh`.
   2. Fix the role, then apply again.
 - **Logins refused for admins:** through the spare session, remove the `# BEGIN/END pam_slurm_adopt` block from `/etc/pam.d/sshd`.
+- **A customer with a job is refused ("no active jobs on this node"):**
+  1. Add `log_level=debug5` to the `pam_slurm_adopt.so` line for one attempt, and read `journalctl -t pam_slurm_adopt`.
+  2. Look in the audit log for sshd denials: `sudo grep 'comm="sshd-session"' /var/log/audit/audit.log | grep denied | tail`.
+  3. If SELinux denies something new, add it to `files/cluster_pam_slurm_adopt.te`, then apply.
+- **A customer without a job gets in:** check that `/etc/pam.d/sshd` has `account substack password-auth`, not `include`.
 - **Jobs wait with `QOSGrpBillingMinutes`:** that customer has no credit. That's billing working (SOP-161).
 
 ## Undo
@@ -65,3 +72,6 @@ A core and the memory beyond `gpu_slots` × 20 GB are kept for the system (`Core
 ## History
 - 2026-10-21: first version, applied to douglas1 ([ops log](../ops-log/2026-10-21-douglas1-setup.md)).
   - The first run cut off new SSH logins: the firewall task was broken, and it ran after the step that sends cluster traffic into the new zone. Fixed through the spare session; the role now opens the zone first.
+  - `pam_slurm_adopt` never ran: `include password-auth` let `sufficient pam_localuser.so` end the check first. Now a substack.
+  - Then logins with a job were refused: SELinux kept sshd from the job steps' sockets. The role now loads the `cluster_pam_slurm_adopt` module.
+  - Tests: 16/16.

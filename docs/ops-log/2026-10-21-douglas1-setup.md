@@ -54,3 +54,57 @@ douglas1 is back (ops log [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md
 - **Full live suite: 116 tests pass, 1 skipped** (the per-user GPU limit, which needs Slurm on a GPU node).
   - That includes customer logins, process hiding, the same files on every node, accounts with the same IDs everywhere, and the customer network limits.
   - Since this was douglas1's first run of these roles, straight from the repo with no improvising, it also counts as their proof run on a compute node. They were proved on anton on 2026-10-20.
+
+## 4. Slurm on douglas1 (SOP-152, SOP-155 new)
+### 4a. Packages, munge and configuration (`slurm_common` on compute nodes)
+- The first preview failed safely: munge's restart handler ran in a first-run preview, before munge was installed. Guarded like the squid and NFS handlers.
+- Applied (`20261021-170106-apply.log`). A munge credential made on anton decodes on douglas1.
+- `slurmd -C` on douglas1: 112 CPUs, 1 socket, 56 cores, 2 threads, 257,056 MB, `gpu:nvidia_geforce_rtx_5070_ti:10`. Recorded in `nodes.yml`: memory 257,000 (a little lower) and the GPU type.
+- **`slurmd` started too early.** The "Restart Slurm daemons" handler did a plain restart, which also starts a stopped daemon. So `slurmd` ran before its firewall, `gres.conf` and login rules were in place.
+  - It registered with 0 GPUs, and Slurm marked the node invalid and drained it, so no job could start.
+  - Stopped it. The handler now uses `systemctl try-restart`.
+- **Two plugin errors in `slurmd`'s log:**
+  - PMIx: the library wasn't on the node. `pmix` is now installed on nodes.
+  - The HTTP parser: never built. Per Slurm's docs, only `slurmrestd` needs it, and we don't use it. `CommunicationParameters=disable_http` in `slurm.conf`, so the daemons don't answer HTTP, and the error is gone.
+- **Two more preview blind spots:** `slurmd`'s start and the NVIDIA key import ran only for real. Fixed. `test_roles.py` now also requires a reason for any task that runs only for real.
+
+### 4b. `slurm.conf` with the GPU type and HTTP off, on both machines
+- Applied (`20261021-171704-apply.log`). `slurmctld` restarted. Controller tests: 23 pass, 1 skipped.
+
+### 4c. `slurm_node` on douglas1
+- **The first apply blocked new SSH logins to douglas1** (`20261021-173221-apply.log`).
+  - The firewall task used a template as a parameter *name*, which Ansible doesn't expand, so it failed. By then the task before it had already sent cluster-network traffic into the new, empty zone.
+  - New logins got "No route to host", firewalld's reject. Existing sessions kept working.
+  - Fixed through the spare session: `firewall-cmd --zone=cluster --add-service=ssh` and `--add-port=6818/tcp`, runtime only. Logins worked again.
+- **Fix in the role:** SSH, `slurmd` and the `srun` ports are opened first, then the traffic is routed to the zone.
+  - New code test: no templated parameter names in any role. It flags the old task.
+  - New live tests: the node's ports, and that the running and saved firewall rules match.
+- Second apply (`20261021-173918-apply.log`): "Done and settled". A new admin login works.
+  - The node was resumed from the earlier drain: `scontrol update nodename=douglas1 state=resume`.
+- **Test jobs waited forever (`QOSGrpBillingMinutes`):** the test customers had no credit. That's billing working.
+  - Granted 50 test credits each (`TEST-CREDIT-2026-10-21-c0001` and `-c0002`, SOP-211).
+  - The tests now fail at once, with the fix in the message, if test credit runs out.
+- **The new live tests found that `pam_slurm_adopt` never ran.** A test user with no job logged in to douglas1.
+  - password-auth's account part ends with `sufficient pam_localuser.so`. Pulled into sshd with `include`, that ends the check for every local user, before `pam_slurm_adopt`.
+  - Now a `substack` (`20261021-180346-apply.log`).
+  - Only test users exist, so no customer could have used this.
+- **Then every login with a job was refused** ("no active jobs on this node").
+  - Found with `pam_slurm_adopt log_level=debug5` (by hand, for one attempt; the next apply put the line back) and the audit log.
+  - SELinux keeps sshd (`sshd_t`) from the job steps' sockets in `/var/spool/slurmd` (`var_spool_t`) and from `slurmstepd` (`unconfined_service_t`).
+  - I briefly switched off the hiding of SELinux denials (`semodule -DB`, then `-B`) while looking. The denials that mattered weren't hidden ones.
+  - New SELinux module `cluster_pam_slurm_adopt`, adapted from the example in Slurm's `pam_slurm_adopt` documentation. Built and loaded by the role (`20261021-182032-apply.log`).
+- Test fixes found along the way:
+  - Slurm 26.05 gives job cgroups opaque names, not `job_<id>`.
+  - Adopted logins land in the job's `step_extern`.
+  - Job-step lines in `slurmd.log` aren't `slurmd` errors.
+  - `sinfo` adds `(S:0)` to the GPUs and shows "completing" for a few seconds after a job.
+- **`./cluster test --live -k test_slurm_node`: 16 of 16 pass.** They cover:
+  - `slurmd` running and enabled, with no plugin errors
+  - the node up with all 10 GPUs, matching `nodes.yml`
+  - the firewall: ports open to the cluster network only, rules permanent
+  - one-GPU and two-GPU jobs see exactly their GPUs
+  - a job gets 10 threads and 20 GB per GPU
+  - jobs can't see another customer's processes, and can't reach the internet or the admin proxy
+  - finished jobs are recorded with their GPUs and billing units
+  - admins log in without a job; a customer without a job is refused; a customer with a job gets in, lands inside the job, and causes no SELinux denials
+  - the SELinux module is loaded
