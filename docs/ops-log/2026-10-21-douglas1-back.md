@@ -50,3 +50,6 @@ Not proven: a hardware problem during the restart, most likely around GPU `0000:
 - A persistent journal on every machine, so the next failure leaves a log.
 - The kernel options in Ansible, so they're recorded and checked. Drop `initcall_debug`, which is leftover debugging, at the next planned reboot.
 - **No reboots of douglas1 until its BMC is reachable (Linear COP-44)**, and then only the self-recovering way (SOP-111).
+
+## Found later on 2026-10-21
+- **A new 4 TB NVMe in douglas1** (Fanxiang S660, `nvme1n1`, PCI `0000:05:00.0`). It first shows up in the boot at 2026-10-20 15:46, so it was fitted during the 10-20 console session. The user says Albert was at the machine. It's blank, with no partitions. `docs/machines.md` is updated.
