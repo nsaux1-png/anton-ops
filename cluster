@@ -231,6 +231,12 @@ def cmd_credits(args, log):
     return {0: EXIT_OK, 2: EXIT_REFUSED}.get(code, EXIT_FAILED)
 
 
+def cmd_software(args, log):
+    """The shared software in /cluster/software, through cluster-software on anton (SOP-144)."""
+    code, _ = log.run(["sudo", "/usr/local/sbin/cluster-software", args.action] + args.rest)
+    return {0: EXIT_OK, 2: EXIT_REFUSED}.get(code, EXIT_FAILED)
+
+
 def cmd_health(args, log):
     """One screen of everything that should be true (SOP-171). Exit code 1 if anything isn't."""
     import datetime
@@ -555,6 +561,18 @@ def build_parser():
     p.add_argument("action", choices=["topup", "grant", "adjust", "refund", "balance", "statement", "hourly", "check"])
     p.add_argument("rest", nargs=argparse.REMAINDER)
     p.set_defaults(func=cmd_credits)
+
+    p = sub.add_parser("software", help="shared software in /cluster/software: list, build, check",
+                       description="Runs cluster-software on anton (SOP-144). Builds what config/versions.yml asks\n"
+                                   "for (after ./cluster apply has installed that file); a built version never changes.\n"
+                                   "  ./cluster software list\n"
+                                   "  ./cluster software build            (everything not built yet)\n"
+                                   "  ./cluster software build pytorch\n"
+                                   "  ./cluster software check            (exit 1 unless everything is built and published)",
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("action", choices=["list", "build", "check"])
+    p.add_argument("rest", nargs=argparse.REMAINDER)
+    p.set_defaults(func=cmd_software)
 
     p = sub.add_parser("health", help="one screen of everything that should be true; exit code 1 if anything isn't")
     p.add_argument("--json", action="store_true")

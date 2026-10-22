@@ -1,0 +1,9 @@
+#!/usr/bin/python3 -I
+# Managed by Ansible (ansible/roles/shared_software), SOP-144. The code is clusterlib/software_cli.py in the repo.
+import sys
+
+sys.path.insert(0, "/usr/local/lib/cluster")
+
+from clusterlib.software_cli import main   # noqa: E402
+
+sys.exit(main())

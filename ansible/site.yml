@@ -39,6 +39,7 @@
     - slurm_controller
     - slurm_accounts
     - billing
+    - shared_software
     - backup
     - test_schedule
 

@@ -4,3 +4,20 @@ slurm:                     # build: SOP-151 (./cluster build slurm); install: SO
   version: 26.05.5
   sha256: 4680cafc82b0689865c885eb703441e7ebf764896c40fd03a50f2fcb60664f68   # SchedMD's GitHub release digest
   cuda_nvml: "13-0"        # cuda-nvml-devel package that gives Slurm its NVIDIA GPU support
+
+# The shared software in /cluster/software (SOP-144). ./cluster software build makes whatever isn't built
+# yet. A built version is never changed: a new version is a new entry, built next to the old one.
+software:
+  miniforge:                       # conda for everyone; their environments go in their own folders
+    version: 26.7.2-1
+    sha256: cf0df84220e1c83a1cb2f447056594ca458fa4c6a353430c498f281ec21bd187   # conda-forge's published digest
+  pytorch:                         # module pytorch/<version>: a conda environment with PyTorch's own wheels
+    - version: 2.14.1-cu130
+      python: "3.12"
+      index: https://download.pytorch.org/whl/cu130   # CUDA 13.0: newest the R580 driver supports; Blackwell needs 12.8+
+      packages: [torch==2.14.1+cu130, torchvision==0.29.1+cu130]
+      default: true
+  containers:                      # Apptainer images, pinned by digest
+    - name: pytorch-2.14.1-cuda13.0-runtime
+      image: docker://pytorch/pytorch@sha256:3c0b174a1339193a5bcc4b37d737c9f5ca3c4782a2293d3888e4271367eddf44
+      tag: pytorch/pytorch:2.14.1-cuda13.0-cudnn9-runtime

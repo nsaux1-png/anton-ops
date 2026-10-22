@@ -1,0 +1,60 @@
+# The shared software's tool on the storage server (SOP-144): cluster-software, its code, the versions it
+# builds and its folders. Building is a separate, deliberate step (./cluster software build): it downloads
+# gigabytes and takes a while.
+- name: Folder for the installed code
+  ansible.builtin.file:
+    path: /usr/local/lib/cluster/clusterlib
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: The code (clusterlib from the repo)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../clusterlib/{{ item }}"
+    dest: "/usr/local/lib/cluster/clusterlib/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [__init__.py, software.py, software_cli.py]
+
+- name: The cluster-software command (root only; admins use ./cluster software)
+  ansible.builtin.copy:
+    src: cluster-software
+    dest: /usr/local/sbin/cluster-software
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Folder for the configuration the cluster's tools use
+  ansible.builtin.file:
+    path: /etc/cluster/config
+    state: directory
+    owner: root
+    group: wheel
+    mode: "0750"
+
+- name: The versions it builds
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../config/versions.yml"
+    dest: /etc/cluster/config/versions.yml
+    owner: root
+    group: wheel
+    mode: "0640"
+
+- name: Folders for modules and container images (readable by everyone)
+  ansible.builtin.file:
+    path: "/cluster/software/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: [modulefiles, containers]
+
+- name: Build folder (root only)
+  ansible.builtin.file:
+    path: /cluster/software/.build
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
