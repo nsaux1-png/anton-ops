@@ -48,6 +48,7 @@ For any admin change to the machines. Don't change a machine by hand when a `./c
 - **`Can't write the run log`:** run SOP-101 again, and check that `id` shows `wheel`.
 - **`UNREACHABLE` in `ping`:** the machine is down, or SSH from anton fails. Try `ssh <machine>`.
 - **`Not settled`:** a role reports changes on every run. That's a bug in the role; fix it before relying on it.
+- **A mount Ansible made is missing for a service:** on a machine reached over SSH, Ansible runs inside sshd's own mount namespace (ProtectProc). Mounts must go through systemd mount units, and `tests/code/test_roles.py` checks this. See them as the host does with `sudo nsenter -t 1 -m findmnt`.
 - **"Nothing to change", but something is wrong:** the preview skips `command` and `shell` tasks. A role must make each one visible in the preview (`tests/code/test_roles.py` checks every role). If a new role fails that test, fix the role.
 - **Preview fails, but the real run would work:** Ansible's preview can't always predict a task that depends on an earlier change in the same run, such as configuring a package that isn't installed yet. The role must handle this, so fix the role.
 

@@ -22,7 +22,7 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-110](SOP-110-package-repos.md) | Package repositories | applied 2026-10-19 |
 | SOP-111 | NVIDIA driver | ◐ driver installed and tested (2026-10-21); written with the proof runs, after douglas1's BMC (COP-44) |
 | [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20; douglas1 2026-10-21 |
-| [SOP-132](SOP-132-job-scratch.md) | Job scratch on GPU nodes (each job's private `/tmp`) | draft 2026-10-21 |
+| [SOP-132](SOP-132-job-scratch.md) | Job scratch on GPU nodes (each job's private `/tmp`) | proved 2026-10-21 |
 | [SOP-141](SOP-141-customer-accounts.md) | Customer accounts, folders and storage limits | proved on anton 2026-10-20; douglas1 2026-10-21 |
 | [SOP-142](SOP-142-customer-logins.md) | How customers log in | proved on anton 2026-10-20; douglas1 2026-10-21 |
 | [SOP-143](SOP-143-user-environment.md) | What customers get: packages, Python, containers, modules, temporary files | proved 2026-10-21 |

@@ -1,5 +1,5 @@
 # SOP-132: Job scratch on GPU nodes (each job's private `/tmp`)
-**Status:** draft 2026-10-21
+**Status:** proved 2026-10-21 ([ops log](../ops-log/2026-10-21-douglas1-setup.md))
 
 ## Purpose
 - **Each GPU node's own NVMe is its scratch disk.** douglas1 has a 4 TB one, fitted on 2026-10-20 (plan D5). It's formatted once (XFS) and mounted at `/scratch`.
@@ -16,7 +16,7 @@
 - `job_container.conf`, in role `slurm_node`.
 - The plugin lines, in `slurm.conf` (role `slurm_common`).
 
-The mount has `nofail` and a 30-second device timeout, so a dead scratch disk can never stop the node from booting.
+The mount has `nofail` and a 30-second device timeout, so a dead scratch disk can never stop the node from booting. It's mounted through its systemd unit (`scratch.mount`), not from Ansible's own session: sshd has its own mount namespace (ProtectProc), so a mount made there never reaches the host or slurmd.
 
 ## When
 - A new GPU node, with its NVMe fitted.
@@ -48,3 +48,6 @@ The mount has `nofail` and a 30-second device timeout, so a dead scratch disk ca
 
 ## History
 - 2026-10-21: first version. It first used `namespace/linux`, whose `namespace.yaml` needs Slurm's YAML serializer. Our build has none (no `libyaml-devel` at build time), so slurmd stopped: "could not find plugin for application/x-yaml". Switched to `namespace/tmpfs`, which reads a plain `job_container.conf`.
+  - The mount first landed only in sshd's own mount namespace (ProtectProc), so the host and slurmd didn't see it. Mounts now go through systemd mount units.
+  - Logins into a job joined its namespace only after SELinux module 1.1.
+  - Proof run: unmounted, `fstab` line and `job_container.conf` removed; the tests failed; one apply restored it. 7/7.

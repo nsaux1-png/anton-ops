@@ -183,3 +183,25 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
   3. `check` passed, and the tests are 12 of 12 again.
 
   PyTorch and the image weren't re-downloaded for the proof (7 GB over the shared office network). Their first build already came straight from the config.
+
+## 9. Job scratch: each job's private /tmp on the new NVMe (SOP-132, new)
+- New role `scratch`: douglas1's 4 TB NVMe (`/dev/disk/by-id/nvme-Fanxiang_S660_4TB_26070712629000533`), checked empty with `wipefs -n`, formatted XFS once, mounted at `/scratch` with `nofail`.
+- **Slurm's per-job namespace:**
+  - **First try, `namespace/linux` with `namespace.yaml`: slurmd stopped.** "fatal: serializer_required: could not find plugin for application/x-yaml". Our Slurm build has no YAML serializer, because `libyaml-devel` wasn't there at build time; only `serializer/url_encoded` was built. douglas1 was out of service for about 15 minutes.
+  - **Switched to `namespace/tmpfs`** (formerly `job_container/tmpfs`), with a plain two-line `job_container.conf`. To-do: rebuild Slurm with `libyaml-devel` and `json-c-devel`.
+- **Then the important finding: `/scratch` was mounted only inside sshd's own mount namespace.**
+  - sshd runs with `ProtectProc=invisible` (customer process hiding, SOP-142), so systemd gives it a mount namespace of its own: a one-way copy of the host's ("shared:217 master:1").
+  - `ansible.posix.mount` with `state: mounted` mounts in the namespace Ansible runs in. Over SSH, that's sshd's. So the host (PID 1) and slurmd never saw `/scratch`, and jobs' `/tmp` would have gone to the system disk.
+  - douglas1's `/cluster` NFS mount only worked because it was made through a connection opened before sshd got the setting. anton's mounts predate it too.
+  - **Fix in the `scratch`, `shared_storage` and `storage` roles:** `fstab` with `state: present`, then the systemd mount unit (`systemctl start scratch.mount`), which PID 1 mounts on the host. The quota remount runs under `nsenter -t 1 -m`.
+  - New code test: no other mount states, and shell mounts need `nsenter`. It flags the four old tasks.
+  - The live tests now check mounts in PID 1's and slurmd's namespaces.
+  - The copy stuck in sshd's namespace was unmounted by hand first.
+- `TmpDisk` for douglas1: 3,800,000 MB (`/scratch` is 3,813,585 MB), so jobs can use `--tmp`.
+  - The controller learned the new figure before the old slurmd re-registered, so the node was drained once for "Low TmpDisk". Resumed. This is noted in SOP-155; it's not automated, because the same reason reports real hardware loss.
+- **Logins into a job saw the host's `/tmp`.** SELinux denied sshd reading the job's namespace file (`nsfs_t`), giving `setns(-1) failed`. The module, now version 1.1, has the three rules from Slurm's `namespace/tmpfs` example. I tried it by hand first, then applied it through the role (`20261021-224055-apply.log`).
+- **Tests:** `test_scratch` 7 of 7, `test_slurm_node` 16 of 16.
+- **Proof run:**
+  1. Unmounted `/scratch` on the host and removed its `fstab` line and `job_container.conf`. Three tests failed.
+  2. That also exposed a weak test: "on the scratch disk" compared `/tmp` with `/scratch`, which are the same disk when it's unmounted. It now compares with the device itself, and failed as it should.
+  3. One apply (`20261021-225233-apply.log`) restored everything. 7 of 7 again.
