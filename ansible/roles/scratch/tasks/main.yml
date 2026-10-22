@@ -1,0 +1,39 @@
+# Fast local scratch on compute nodes (SOP-132): the node's own NVMe (scratch_device in config/nodes.yml),
+# formatted once and mounted at /scratch. Each job's private /tmp lives there (Slurm's namespace/linux
+# plugin, set up by slurm_node) and is deleted when the job ends.
+- name: The node has its scratch disk
+  ansible.builtin.stat:
+    path: "{{ scratch_device }}"
+  register: scratch_disk
+
+- name: Stop if the scratch disk isn't there
+  ansible.builtin.assert:
+    that: scratch_disk.stat.exists
+    fail_msg: "{{ scratch_device }} is missing on {{ inventory_hostname }} (config/nodes.yml scratch_device)"
+
+# Never over an existing filesystem: force is off, so a disk that has one is left exactly as it is.
+- name: XFS on the scratch disk, made once
+  community.general.filesystem:
+    fstype: xfs
+    dev: "{{ scratch_device }}"
+    force: false
+  register: scratch_fs
+
+# nofail and a short device timeout: a dead scratch disk must never stop the node from booting.
+- name: Mount it at /scratch
+  ansible.posix.mount:
+    path: /scratch
+    src: "{{ scratch_device }}"
+    fstype: xfs
+    opts: defaults,noatime,nofail,x-systemd.device-timeout=30s
+    state: mounted
+  when: not (ansible_check_mode and scratch_fs is changed)
+
+- name: /scratch belongs to root; jobs get their own folders inside
+  ansible.builtin.file:
+    path: /scratch
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: not (ansible_check_mode and scratch_fs is changed)

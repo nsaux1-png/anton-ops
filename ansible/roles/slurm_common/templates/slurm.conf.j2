@@ -24,6 +24,10 @@ SlurmdDebug=info
 ProctrackType=proctrack/cgroup
 TaskPlugin=task/cgroup,task/affinity
 PrologFlags=Contain
+# Each job gets a private /tmp on the node's scratch disk, and a fresh /dev/shm; both go when it ends
+# (namespace.yaml, SOP-132). TmpFS is what Slurm reports as the node's temporary space.
+NamespaceType=namespace/linux
+TmpFS=/scratch
 TaskProlog=/etc/slurm/task_prolog.sh   # on the nodes (slurm_node): TMPDIR=/tmp in jobs
 SelectType=select/cons_tres
 SelectTypeParameters=CR_Core_Memory

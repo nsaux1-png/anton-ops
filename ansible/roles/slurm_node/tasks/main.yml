@@ -97,6 +97,20 @@
     state: present
   notify: Restart Slurm daemons
 
+# Changing this file while jobs run can disturb them (namespace.yaml(5)): apply it with the node idle.
+- name: namespace.yaml (each job's private /tmp on /scratch, and its own /dev/shm)
+  ansible.builtin.copy:
+    dest: /etc/slurm/namespace.yaml
+    content: |
+      # Managed by Ansible (ansible/roles/slurm_node), SOP-132.
+      defaults:
+        auto_base_path: true
+        base_path: "/scratch/slurm"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Slurm daemons
+
 - name: Run slurmd now and at boot
   ansible.builtin.systemd:
     name: slurmd

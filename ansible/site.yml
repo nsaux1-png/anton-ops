@@ -51,6 +51,7 @@
     - egress
     - time
     - shared_storage
+    - scratch
     - slurm_common
     - slurm_node
 
