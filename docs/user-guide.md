@@ -27,7 +27,7 @@
 ## 3. Jobs and GPUs
 The cluster runs **Slurm**. You submit jobs; Slurm runs them when GPUs are free.
 
-**Each GPU comes with 5 CPU cores (Slurm counts 10, since each core runs 2 threads) and 20 GB of memory.** That's what you get by default. You can ask for less, but not more. If you need more memory, ask for more GPUs.
+**Each GPU comes with 5 CPU cores (Slurm counts 10, since each core runs 2 threads) and 24 GB of memory.** That's what you get by default. You can ask for less, but not more. If you need more memory, ask for more GPUs.
 
 A typical job script, `train.sh`:
 ```bash
@@ -52,7 +52,7 @@ Submit it with `sbatch train.sh`. Other useful commands:
 
 **What's refused straight away, with a message saying why:**
 - jobs that don't ask for a GPU
-- more than 10 CPUs or 20 GB per GPU
+- more than 10 CPUs or 24 GB per GPU
 - `--mem=0` and `--exclusive`
 - a time limit over 7 days
 - job scripts with Windows line endings: convert them with `dos2unix`, or save them with Unix line endings
@@ -139,7 +139,7 @@ Containers see all of `/cluster` (your home, project folder and the shared softw
 
 ## 7. Credits and costs
 You pay with **prepaid credits** (1 credit = 1 US dollar). Every job and your storage draw them down.
-- **Compute:** charged per second for what the job holds: GPUs, CPUs and memory, billed by whichever is the largest share of a node. With the standard 5 cores and 20 GB per GPU, that's simply the GPU price per hour. You pay for what you reserved, even if the job left it idle.
+- **Compute:** charged per second for what the job holds: GPUs, CPUs and memory, billed by whichever is the largest share of a node. With the standard 5 cores and 24 GB per GPU, that's simply the GPU price per hour. You pay for what you reserved, even if the job left it idle.
 - **Storage:** the month's peak × the price per GiB-month.
 - **Credit expires 12 months after purchase.** The oldest credit is used first.
 - **Out of credit:** new jobs wait, and running jobs get 10 more minutes (section 5). Files stay, and storage keeps being charged. After 30 days at a negative balance, with emails before then, files may be deleted.

@@ -85,6 +85,18 @@ class Slurmd(unittest.TestCase):
                 gres = re.sub(r"\(S:[^)]*\)", "", gres)      # sinfo adds the GPUs' CPU sockets
                 self.assertEqual(gres, f"gpu:{var(node, 'slurm_gpu_type')}:{var(node, 'gpu_count')}")
 
+    def test_a_full_share_of_anything_bills_the_same(self):
+        """MAX_TRES bills the largest share: a GPU's full share of CPUs, of memory, or the GPU itself must each
+        be the same number of units, never more (or a standard job would be overbilled)."""
+        out = run(HEAD, "scontrol show partition gpu").stdout
+        weights = dict(w.split("=") for w in re.search(r"TRESBillingWeights=(\S+)", out).group(1).split(","))
+        units = SLURM["slurm_billing_units_per_gpu"]
+        self.assertEqual(float(weights["CPU"]) * SLURM["slurm_cpus_per_gpu"], units)
+        self.assertEqual(float(weights["GRES/gpu"]), units)
+        memory_units = float(weights["Mem"].rstrip("G")) * SLURM["slurm_mem_per_gpu_mb"] / 1024
+        self.assertLessEqual(memory_units, units, "a full share of memory must not bill above its GPU")
+        self.assertGreater(memory_units, units - 0.01)
+
     def test_node_matches_config_nodes_yml(self):
         for node in NODES:
             with self.subTest(node=node):
@@ -138,7 +150,7 @@ class GpuJobs(unittest.TestCase):
         self.assertEqual(len([l for l in r.stdout.splitlines() if l.startswith("GPU ")]), 2, r.stdout)
 
     def test_a_job_gets_its_share_of_cpus_and_memory(self):
-        """Each GPU comes with 10 hardware threads (5 cores) and 20 GB, held by the job's cgroup."""
+        """Each GPU comes with its share of hardware threads and memory, held by the job's cgroup."""
         # The job's cgroup is the parent of its step's (Slurm 26.05 gives it an opaque name, not job_<id>).
         r = in_job(A, "--gpus=1",
                    "nproc; p=$(cut -d: -f3 /proc/self/cgroup); "
@@ -173,7 +185,7 @@ class GpuJobs(unittest.TestCase):
         job = r.stdout.strip().split(";")[0]
         tres = wait_until(lambda: run(HEAD, f"sudo sacct -n -X -j {job} -o AllocTRES%200").stdout.strip())
         self.assertIn("gres/gpu=1", tres)
-        self.assertIn(f"billing={SLURM['slurm_cpus_per_gpu']}", tres)
+        self.assertIn(f"billing={SLURM['slurm_billing_units_per_gpu']}", tres)
 
 
 class NodeLogins(unittest.TestCase):

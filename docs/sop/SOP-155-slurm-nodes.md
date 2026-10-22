@@ -4,7 +4,7 @@
 ## Purpose
 A GPU node runs customers' jobs and nothing else:
 - **`slurmd`** finds the GPUs and their model through NVIDIA's library (`gres.conf`: `AutoDetect=nvml`).
-- **Each job gets exactly what it asked for.** Its cgroup holds it to its cores, memory and GPUs (`cgroup.conf`, SOP-152). With the standard share, that's 10 hardware threads (5 cores) and 20 GB per GPU.
+- **Each job gets exactly what it asked for.** Its cgroup holds it to its cores, memory and GPUs (`cgroup.conf`, SOP-152). With the standard share, that's 10 hardware threads (5 cores) and 24 GB per GPU.
 - **Job processes see only their own user's processes.** `slurmd` runs with systemd's `ProtectProc=invisible`, as `sshd` does (SOP-142).
 - **Jobs can't reach the internet, the office network or the admin proxy.** They run under customer UIDs, which the node's egress rules stop (SOP-104).
 - **Customers log in to a node only while they have a job there** (`pam_slurm_adopt`). The login is put inside that job, so it's limited and billed like the job. Admins (group `wheel`) always get in. `pam_systemd` is off on nodes, because it would move adopted logins out of the job.
@@ -21,7 +21,7 @@ The node's hardware is in `config/nodes.yml`:
 - `slurm_gpu_type`, as NVML names it
 - `gpu_count`, and `gpu_slots` (the number of GPUs each share is sized for)
 
-A core and the memory beyond `gpu_slots` × 20 GB are kept for the system (`CoreSpecCount`, `MemSpecLimit`).
+A core and the memory beyond `gpu_slots` × the per-GPU memory (24 GB) are kept for the system (`CoreSpecCount`, `MemSpecLimit`).
 
 ## When
 - A new GPU node, after its OS, driver (SOP-111) and storage (SOP-130) are in place.
@@ -45,7 +45,7 @@ A core and the memory beyond `gpu_slots` × 20 GB are kept for the system (`Core
   - the node is up with all its GPUs, and matches `config/nodes.yml`
   - its firewall ports are open to the cluster network only, and the rules are permanent
   - one-GPU and two-GPU jobs see exactly their GPUs
-  - a job gets 10 threads and 20 GB per GPU
+  - a job gets 10 threads and 24 GB per GPU
   - a job can't see another customer's processes, and can't reach the internet or the admin proxy
   - finished jobs are recorded with their GPUs and billing units
   - admins log in without a job; a customer without a job is refused; a customer with a job gets in and lands inside it

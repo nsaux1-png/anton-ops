@@ -13,6 +13,7 @@
 8. Independent plan review applied ([`reviews/2026-10-19-plan-review.md`](reviews/2026-10-19-plan-review.md)). Fixed: the credit limit formula, storage enforced by group quotas, Slurm's own job-script purge, no GPU energy accounting, `ProtectProc` instead of `hidepid`, integer billing units, one partition per GPU model, running jobs charged hourly, CUDA 12.8+. New questions Q8–Q9.
 9. Tests are written with each build step and run on the cluster, not GitHub. Customer folders live under `/cluster`, so admin home folders stay local.
 10. Built (2026-10-20): amounts are whole micro-credits; prices are recorded per customer with the time they took effect; every apply sets prices and Slurm credit limits (`cluster-billing sync`); customers' only sudo is their four billing views (SOP-162).
+11. Changed (2026-10-22): douglas1 stays at **10 GPUs**, so each GPU's share is **5 cores + 24 GB** (was 20 GB, sized for 11). Billing weights are now computed from the share.
 
 ## Requirements (user, 2026-10-19)
 1. Track usage per user.
@@ -149,14 +150,14 @@ In practice each GPU's share has to be whole cores, because two customers never 
 | 11 | 5 cores, 21 GB | 55 cores, 231 GB | 1 core, 20 GB |
 | 12 | 4 cores, 20 GB | 48 cores, 240 GB | 8 cores, 11 GB |
 
-- **Decided (Q4): 5 cores + 20 GB per GPU**, sized for 11 GPUs from day one, so the size never shrinks.
-  - With 11 GPUs, jobs use 55 cores and 220 GB, leaving the system 1 core and 31 GB.
-  - With 10 GPUs, 6 cores and 51 GB stay unused. Unsold capacity costs nothing; the node just has headroom.
+- **Decided (Q4, changed 2026-10-22): 5 cores + 24 GB per GPU.** douglas1 stays at 10 GPUs (the user, 2026-10-22), so the share is sized for 10. That's the first row of the table: jobs use 50 cores and 240 GB, and the system keeps 6 cores and 11 GB.
+  - Until 2026-10-22 it was 5 cores + 20 GB, sized for an 11th GPU that won't come. That left about 50 GB unused.
+  - 256 GB of RAM against 160 GB of GPU memory is 1.6×. 24 GB per 16 GB GPU is 1.5×, the low end of the usual 1.5–2×.
   - 5 cores is 10 threads, which clouds would call 10 vCPUs. That's within the usual range for GPU cloud offers (roughly 4–16 vCPUs per GPU). In GPU jobs the CPU mostly feeds data to the GPU, and 10 threads is enough for typical data loading.
   - The memory left over matters: the OS, the GPU driver and the file cache need it. If jobs could take every last GB, the node could freeze and take every job on it down.
-- Note: 20 GB of RAM per 16 GB GPU is lean for machine-learning work. A common rule of thumb is 1.5–2× the GPU's memory. All 8 memory slots already hold 32 GB sticks (DDR4-2133), so more RAM means replacing them. For example, 8× 64 GB DDR4-3200 = 512 GB is roughly 44 GB per GPU with 11 GPUs, and faster memory too (Linear COP-43). The per-GPU size would be raised then.
-- **Defaults:** a job gets the full per-GPU share unless it asks for less: `DefCpuPerGPU=10` (Slurm counts each hardware thread as a CPU, so 5 cores is 10) and `DefMemPerGPU=20G`. It can't ask for more. A job that needs more RAM takes more GPUs.
-- **Checked at submission:** Slurm has a "default memory per GPU" setting but no "maximum per GPU" one. A short `job_submit.lua` script (run by Slurm on every submission) therefore rejects oversized jobs with a clear message, e.g. "gpu partition: at most 5 cores and 20 GB per GPU". `EnforcePartLimits=ALL` rejects jobs that break partition limits at submission instead of leaving them queued forever.
+- Note: a common rule of thumb is 1.5–2× the GPU's memory, so 24 GB per 16 GB GPU is at the low end (20 GB was lean). All 8 memory slots already hold 32 GB sticks (DDR4-2133), so more RAM means replacing them. For example, 8× 64 GB DDR4-3200 = 512 GB is roughly 48 GB per GPU with 10 GPUs, and faster memory too (Linear COP-43). The per-GPU size would be raised then.
+- **Defaults:** a job gets the full per-GPU share unless it asks for less: `DefCpuPerGPU=10` (Slurm counts each hardware thread as a CPU, so 5 cores is 10) and `DefMemPerGPU=24G`. It can't ask for more. A job that needs more RAM takes more GPUs.
+- **Checked at submission:** Slurm has a "default memory per GPU" setting but no "maximum per GPU" one. A short `job_submit.lua` script (run by Slurm on every submission) therefore rejects oversized jobs with a clear message, e.g. "gpu partition: at most 5 cores and 24 GB per GPU". `EnforcePartLimits=ALL` rejects jobs that break partition limits at submission instead of leaving them queued forever.
   - The script also checks changes to waiting jobs (`scontrol update`), rejects `--mem=0` and `--exclusive`, and handles every way of asking for GPUs. It does no file or network access, because Slurm runs it while holding its locks.
 - **Enforced while running:** cgroups hold each job to what it was given. A job that goes over its memory is killed and recorded as `OUT_OF_MEMORY`. It only sees its own GPUs.
 - **GPU nodes run GPU jobs only:** a job in `gpu` must ask for at least one GPU. Otherwise a CPU-only job could take the cores and memory and leave GPUs that nobody can use.
@@ -193,7 +194,7 @@ In practice each GPU's share has to be whole cores, because two customers never 
 - `config/rates.yml` is the **default price list**: per GPU-hour by GPU model, per CPU-core-hour (Slurm counts threads; the charging script converts), and per GB-month of storage. Amounts are stored as whole numbers of the smallest unit (D40), never as floating point.
 - A customer can have its own prices under `rates:` in `customers.yml` (section 2). Anything not listed there comes from the default list. Alternatively, a customer gets `discount_percent: 15` off the whole default list. Where a customer has both, their own `rates:` win for the items listed.
 - Prices have start dates. A job is charged at the prices in effect when it started. Changing a default price doesn't affect a customer who has their own price for that item. The statement shows the price used on every line.
-- Slurm only measures resource units, the same for everyone. Slurm stores them as whole numbers, so the weights are integers. On douglas1, 1 unit is a tenth of one GPU's share (`TRESBillingWeights=CPU=1,Mem=0.5G,GRES/gpu=10`), so a 1-GPU job (10 threads, 20 GB) is 10 units whichever share is largest. Prices are applied by our charging script.
+- Slurm only measures resource units, the same for everyone. Slurm stores them as whole numbers, so the weights are integers. On douglas1, 1 unit is a tenth of one GPU's share, so a 1-GPU job (10 threads, 24 GB) is 10 units whichever share is largest. The weights are computed from the share in `slurm.conf.j2` (`CPU=1,Mem=0.416666G,GRES/gpu=10` for 24 GB). The memory weight is rounded down, so a full share's memory (9.99998 units) never bills above its GPU; Slurm truncates to a whole number. A live test checks this. Prices are applied by our charging script.
 
 ### Credits
 The full design is in plan section 12.2. In short:
@@ -309,7 +310,7 @@ Every routine admin task is a `./cluster` command. Each is plain code (Python pl
 - ~~Q1. Usernames~~ → **decided:** two letters + two digits, random (section 3).
 - ~~Q2. Hide nodes and GPUs?~~ → **decided:** customers can see them (section 5).
 - ~~Q3. Admin logins through a VPN?~~ → **decided:** yes, later; it's on the to-do list (section 3).
-- ~~Q4. Size per GPU~~ → **decided:** 5 cores + 20 GB, sized for 11 GPUs (section 7).
+- ~~Q4. Size per GPU~~ → **decided:** 5 cores + 24 GB, sized for 10 GPUs (section 7; was 20 GB for 11 until 2026-10-22).
 - ~~Q5. Store job scripts?~~ → **decided:** yes, 60 days (section 8).
 - ~~Q6. Files at zero balance?~~ → **decided:** kept and charged; deleted after 30 days negative (section 9).
 - ~~Q7. Credit expiry~~ → **decided:** 12 months, soonest-expiring first; no free trials (section 9).

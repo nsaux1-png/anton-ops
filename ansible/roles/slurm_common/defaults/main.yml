@@ -7,7 +7,8 @@ slurm_gpu_partitions: [gpu]
 slurm_max_time: 7-00:00:00         # plan D23
 slurm_default_time: "01:00:00"
 slurm_cpus_per_gpu: 10             # hardware threads, i.e. 5 cores (design Q4)
-slurm_mem_per_gpu_mb: 20480        # 20 GB (design Q4)
+slurm_mem_per_gpu_mb: 24576        # 24 GB: douglas1 stays at 10 GPUs (2026-10-22); was 20 GB sized for 11
+slurm_billing_units_per_gpu: 10    # one GPU's full share is 10 billing units (rates.yml units_per_gpu)
 slurm_max_queued_jobs: 500         # per user
 
 # Packages from our build (SOP-151), by machine role.

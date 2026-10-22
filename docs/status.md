@@ -5,7 +5,7 @@
 ## What a customer gets
 - **Logins** with their own SSH key, no passwords. Files go in with scp, rsync or sftp. The login node is for installing and submitting: 4 cores and 6 GB per user.
 - **Storage:** a private home folder and a company project folder, with one limit per company (150 GB default), billed on the month's peak.
-- **GPU jobs** through Slurm. Each GPU comes with 5 cores and 20 GB; one job's GPUs, memory and processes are private. Interactive sessions and job arrays work.
+- **GPU jobs** through Slurm. Each GPU comes with 5 cores and 24 GB; one job's GPUs, memory and processes are private. Interactive sessions and job arrays work.
 - **Scratch:** each job's private `/tmp` on douglas1's 4 TB NVMe, deleted when the job ends.
 - **Software:**
   - shared and free: `module load pytorch` (PyTorch 2.14.1 for CUDA 13.0), `module load miniforge` (conda), and NVIDIA's PyTorch container image

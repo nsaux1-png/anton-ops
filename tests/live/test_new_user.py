@@ -21,6 +21,8 @@ NODE = hosts("gpu_nodes")[0]
 USER, CODE = "zz05", "c0003"
 with open(os.path.join(REPO, "config", "customers.yml")) as f:
     CUSTOMER = yaml.safe_load(f)["customers"].get(CODE)
+with open(os.path.join(REPO, "ansible", "roles", "slurm_common", "defaults", "main.yml")) as f:
+    SLURM_MEM_PER_GPU_GB = yaml.safe_load(f)["slurm_mem_per_gpu_mb"] // 1024
 
 
 class Login:
@@ -210,11 +212,12 @@ class CommonMistakes(unittest.TestCase):
         self.assertNotIn("rc=124", r.stdout, "it must fail with an error, not hang")
 
     def test_running_out_of_memory(self):
+        too_much = SLURM_MEM_PER_GPU_GB + 1
         r = ME.run("sbatch --parsable --wait --gpus=1 --time=3 --wrap "
-                   "\"python3 -c 'b = b\\\"x\\\" * (25 * 1024**3)'\"", timeout=600)
+                   f"\"python3 -c 'b = b\\\"x\\\" * ({too_much} * 1024**3)'\"", timeout=600)
         job = r.stdout.strip().split(";")[0]
         state = wait_until(lambda: ME.run(f"sacct -n -X -j {job} -o State%30").stdout.strip() or None, seconds=60)
-        self.assertEqual(state, "OUT_OF_MEMORY", "a job over its 20 GB per GPU is stopped, and says so")
+        self.assertEqual(state, "OUT_OF_MEMORY", "a job over its memory per GPU is stopped, and says so")
 
 
 if __name__ == "__main__":

@@ -84,6 +84,22 @@ class Prices(unittest.TestCase):
         self.assertEqual(b.highest_unit_hour_price(p, RATES, ["gpu", "cpu"]), 50_000)
 
 
+class UnitsAgreeWithSlurm(unittest.TestCase):
+    def test_rates_and_slurm_count_a_gpus_share_as_the_same_units(self):
+        """rates.yml prices a GPU's share as units_per_gpu billing units; Slurm's billing weights are built from
+        slurm_billing_units_per_gpu. If they differed, every job would be charged wrongly."""
+        import os
+        import yaml
+        repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+        with open(os.path.join(repo, "config", "rates.yml")) as f:
+            rates = yaml.safe_load(f)
+        with open(os.path.join(repo, "ansible", "roles", "slurm_common", "defaults", "main.yml")) as f:
+            slurm = yaml.safe_load(f)
+        self.assertEqual(rates["units_per_gpu"], slurm["slurm_billing_units_per_gpu"])
+        self.assertEqual(slurm["slurm_billing_units_per_gpu"] % slurm["slurm_cpus_per_gpu"], 0,
+                         "the CPU weight must come out a whole number")
+
+
 class JobCosts(unittest.TestCase):
     def test_one_gpu_for_an_hour_costs_the_gpu_hour_price(self):
         self.assertEqual(b.job_cost(10, 3600, 50_000), 500_000)

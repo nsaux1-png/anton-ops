@@ -65,5 +65,8 @@ PriorityMaxAge=7-0
 NodeName={{ node }} NodeAddr={{ h.cluster_ip }} CPUs={{ h.slurm_cpus }} Boards=1 SocketsPerBoard={{ h.slurm_sockets }} CoresPerSocket={{ h.slurm_cores_per_socket }} ThreadsPerCore={{ h.slurm_threads_per_core }} RealMemory={{ h.slurm_real_memory_mb }} TmpDisk={{ h.slurm_tmp_disk_mb | default(0) }} CoreSpecCount={{ h.slurm_core_spec_count }} MemSpecLimit={{ h.slurm_real_memory_mb - h.gpu_slots * slurm_mem_per_gpu_mb }} Gres=gpu{{ (':' ~ h.slurm_gpu_type) if h.slurm_gpu_type is defined else '' }}:{{ h.gpu_count }} State=UNKNOWN
 {% endfor %}
 
-# Partitions.
-PartitionName=gpu Nodes={{ groups['gpu_nodes'] | sort | join(',') }} Default=YES MaxTime={{ slurm_max_time }} DefaultTime={{ slurm_default_time }} DefCpuPerGPU={{ slurm_cpus_per_gpu }} DefMemPerGPU={{ slurm_mem_per_gpu_mb }} TRESBillingWeights="CPU=1,Mem=0.5G,GRES/gpu=10" State=UP
+# Partitions. Billing weights come from the per-GPU share, so a full share of any one of CPUs, memory or a
+# GPU is the same number of units (MAX_TRES bills the largest). The memory weight is rounded down, so a
+# share's memory never bills above its GPU: Slurm truncates the total to a whole number.
+{% set mem_weight = ((slurm_billing_units_per_gpu * 1024 * 1000000 / slurm_mem_per_gpu_mb) | int) / 1000000 %}
+PartitionName=gpu Nodes={{ groups['gpu_nodes'] | sort | join(',') }} Default=YES MaxTime={{ slurm_max_time }} DefaultTime={{ slurm_default_time }} DefCpuPerGPU={{ slurm_cpus_per_gpu }} DefMemPerGPU={{ slurm_mem_per_gpu_mb }} TRESBillingWeights="CPU={{ slurm_billing_units_per_gpu // slurm_cpus_per_gpu }},Mem={{ mem_weight }}G,GRES/gpu={{ slurm_billing_units_per_gpu }}" State=UP

@@ -102,3 +102,9 @@ This corrects the entry above. The user meant **customers**: "i don't want them 
 - **D46 timing:** the mirror comes before the second node or the first customer. Until then douglas1 installs through the proxy, with the key versions pinned (kernel, NVIDIA driver, later Slurm).
 
 **Why a proxy rather than NAT:** with NAT, a single firewall mistake puts every job on the internet, and nothing records what was fetched. The proxy only carries web traffic, only for admins, and logs it. **Why still a mirror:** it's the only way every node gets identical package versions with dated snapshots to roll back to. A proxy gives whatever is newest on the day.
+
+## 2026-10-22: douglas1 stays at 10 GPUs; 5 cores + 24 GB per GPU (design Q4 changed)
+- **No 11th GPU in douglas1** (the user). The per-GPU share was sized for 11; with 10, about 50 GB of RAM would sit unused.
+- **Each GPU now comes with 5 cores and 24 GB** (was 20 GB). That's 1.5× the GPU's 16 GB, at the low end of the usual 1.5–2×. 256 GB against 160 GB of GPU memory is 1.6× for the machine. The system keeps 6 cores and 11 GB.
+- **Billing weights now follow the share.** A full share of CPUs, memory or a GPU is 10 units each, and the memory weight is rounded down so memory never bills above its GPU. With the old fixed `Mem=0.5G`, 24 GB would have billed 12 units, 20% too much on every job.
+- **Why:** the user, 2026-10-22: "yea raise to 24gb".

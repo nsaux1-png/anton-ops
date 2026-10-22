@@ -33,7 +33,7 @@ all:
               cluster_ip: 172.16.50.11
               gpu_count: 10
               gpu_name: NVIDIA GeForce RTX 5070 Ti
-              gpu_slots: 11                 # planned GPUs: each GPU's share of CPUs and memory is sized for 11
+              gpu_slots: 10                 # each GPU's share of CPUs and memory is sized for 10 (2026-10-22: no 11th GPU)
               scratch_device: /dev/disk/by-id/nvme-Fanxiang_S660_4TB_26070712629000533   # 4 TB, fitted 2026-10-20 (SOP-132)
               slurm_tmp_disk_mb: 3800000    # /scratch is 3,813,585 MB (2026-10-21); what jobs may ask for with --tmp
               kernel_args:                  # extra kernel options on every boot entry (SOP-107)

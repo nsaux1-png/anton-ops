@@ -14,6 +14,6 @@ partitions:                # the GPU model of each GPU partition (one model per 
 prices:
   - from: 2026-10-01
     gpu_hour:
-      rtx5070ti: 0.50      # per GPU-hour, with its 5 cores and 20 GB
+      rtx5070ti: 0.50      # per GPU-hour, with its 5 cores and 24 GB
     cpu_core_hour: 0.02    # CPU-only partitions, per core-hour
     storage_gb_month: 0.05 # per GiB of the month's peak

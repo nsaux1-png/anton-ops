@@ -4,7 +4,7 @@
 ## Purpose
 Slurm runs `/etc/slurm/job_submit.lua` (template `ansible/roles/slurm_controller/templates/job_submit.lua.j2`) for every submitted or changed job. On GPU partitions:
 - **at least one GPU**, or the job is rejected (a CPU-only job would strand the GPUs)
-- **at most 10 CPUs (5 cores) and 20 GB per GPU.** This counts every way of asking: `-c`, `-n`, `--cpus-per-gpu`, `--mem`, `--mem-per-cpu` and `--mem-per-gpu`.
+- **at most 10 CPUs (5 cores) and 24 GB per GPU.** This counts every way of asking: `-c`, `-n`, `--cpus-per-gpu`, `--mem`, `--mem-per-cpu` and `--mem-per-gpu`.
 - **no `--mem=0` and no `--exclusive`**
 - no GPUs per socket (customers are asked to use per job, per node or per task instead)
 

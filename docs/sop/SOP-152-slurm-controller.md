@@ -19,9 +19,9 @@
   - GPU use recorded per job
   - job scripts stored; slurmdbd deletes them after 60 days (`PurgeJobScriptAfter=60days`)
   - `PrivateData` in both `slurm.conf` and `slurmdbd.conf`
-  - `PriorityFlags=MAX_TRES` and integer billing weights (`CPU=1,Mem=0.5G,GRES/gpu=10`)
-  - douglas1 with one core reserved (`CoreSpecCount=1`), and `MemSpecLimit` sized so exactly 11 × 20 GB is left for jobs
-  - partition `gpu`: 10 CPUs and 20 GB per GPU by default; 7 days maximum, 1 hour default
+  - `PriorityFlags=MAX_TRES`, and billing weights computed from the per-GPU share, so a full share of CPUs, memory or a GPU is 10 units each (`CPU=1,Mem=0.416666G,GRES/gpu=10` for 24 GB; the memory weight is rounded down)
+  - douglas1 with one core reserved (`CoreSpecCount=1`), and `MemSpecLimit` sized so exactly `gpu_slots` × the per-GPU memory is left for jobs (10 × 24 GB since 2026-10-22)
+  - partition `gpu`: 10 CPUs and 24 GB per GPU by default; 7 days maximum, 1 hour default
 
 ## When
 Automatically on every `./cluster apply`.

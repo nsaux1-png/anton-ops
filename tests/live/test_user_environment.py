@@ -122,6 +122,10 @@ class FirstLogin(unittest.TestCase):
             with self.subTest(host=host):
                 welcome = run(host, "cat /etc/motd.d/cluster-welcome").stdout
                 self.assertIn("/cluster/docs/guide.md", welcome)
+                with open(os.path.join(REPO, "ansible", "roles", "slurm_common", "defaults", "main.yml")) as f:
+                    share = yaml.safe_load(f)
+                self.assertIn(f"{share['slurm_cpus_per_gpu'] // 2} cores and {share['slurm_mem_per_gpu_mb'] // 1024} GB",
+                              welcome, "the welcome message states the real per-GPU share")
         r = as_user("head -1 /cluster/docs/guide.md")
         self.assertIn("guide", r.stdout.lower())
 
