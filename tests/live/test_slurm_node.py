@@ -27,9 +27,19 @@ def as_user(user, command, timeout=300):
 
 
 def in_job(user, options, command, timeout=300):
-    """srun a command as a user (waits for the job to start and finish). Returns the CompletedProcess."""
-    return as_user(user, f"srun --job-name=cluster-test --time=5 {options} bash -c {shlex.quote(command)}",
-                   timeout=timeout)
+    """srun a command as a user; gives up if the job can't start within 2 minutes."""
+    return as_user(user, f"srun --immediate=120 --job-name=cluster-test --time=5 {options} "
+                         f"bash -c {shlex.quote(command)}", timeout=timeout)
+
+
+def setUpModule():
+    """Jobs need credit: without it they wait forever (QOSGrpBillingMinutes). Fail at once instead."""
+    for user in (A, B):
+        code = run(HEAD, f"id -gn {user}").stdout.strip()
+        limit = run(HEAD, f"sacctmgr -nP show qos cust-{code} format=grptresmins").stdout.strip()
+        if not limit.startswith("billing=") or int(limit.split("=")[1]) <= 0:
+            raise AssertionError(f"test customer {code} has no credit (QOS limit '{limit}'): "
+                                 f"./cluster credits grant {code} 50 --ref TEST-CREDIT-<date>-{code} (SOP-211)")
 
 
 def background_job(user, options, seconds=300):
@@ -56,10 +66,16 @@ class Slurmd(unittest.TestCase):
                 self.assertEqual(run(node, "systemctl is-enabled slurmd").stdout.strip(), "enabled")
 
     def test_node_is_up_with_all_its_gpus(self):
+        usable = {"idle", "mixed", "allocated"}
         for node in NODES:
             with self.subTest(node=node):
-                state, gres = run(HEAD, f"sinfo -h -N -n {node} -o '%T %G'").stdout.split()
-                self.assertIn(state, {"idle", "mixed", "allocated"})
+                def state_and_gpus():
+                    return run(HEAD, f"sinfo -h -N -n {node} -o '%T %G'").stdout.split()
+                # "completing" passes in seconds after a job ends.
+                wait_until(lambda: state_and_gpus()[0] in usable, seconds=120)
+                state, gres = state_and_gpus()
+                self.assertIn(state, usable)
+                gres = re.sub(r"\(S:[^)]*\)", "", gres)      # sinfo adds the GPUs' CPU sockets
                 self.assertEqual(gres, f"gpu:{var(node, 'slurm_gpu_type')}:{var(node, 'gpu_count')}")
 
     def test_node_matches_config_nodes_yml(self):
@@ -98,7 +114,8 @@ class Slurmd(unittest.TestCase):
         for node in NODES:
             with self.subTest(node=node):
                 log = run(node, "sudo tac /var/log/slurm/slurmd.log | sed '/slurmd started on/q' | tac").stdout
-                errors = [l for l in log.splitlines() if "error:" in l]
+                # Lines from jobs ("[25.batch] error: *** JOB 25 ... CANCELLED ***") are about the job, not slurmd.
+                errors = [l for l in log.splitlines() if "error:" in l and not re.search(r"\] \[\d+\.", l)]
                 self.assertEqual(errors, [])
 
 
@@ -115,10 +132,11 @@ class GpuJobs(unittest.TestCase):
 
     def test_a_job_gets_its_share_of_cpus_and_memory(self):
         """Each GPU comes with 10 hardware threads (5 cores) and 20 GB, held by the job's cgroup."""
+        # The job's cgroup is the parent of its step's (Slurm 26.05 gives it an opaque name, not job_<id>).
         r = in_job(A, "--gpus=1",
                    "nproc; p=$(cut -d: -f3 /proc/self/cgroup); "
-                   "while [ \"$p\" != / ] && [[ $(basename \"$p\") != job_* ]]; do p=$(dirname \"$p\"); done; "
-                   "cat /sys/fs/cgroup$p/memory.max")
+                   "while [ \"$p\" != / ] && [[ $(basename \"$p\") != step_* ]]; do p=$(dirname \"$p\"); done; "
+                   "cat /sys/fs/cgroup$(dirname \"$p\")/memory.max")
         self.assertEqual(r.returncode, 0, r.stderr)
         cpus, memory = r.stdout.split()
         self.assertEqual(int(cpus), SLURM["slurm_cpus_per_gpu"])
@@ -174,7 +192,8 @@ class NodeLogins(unittest.TestCase):
             node = run(HEAD, f"squeue -h -j {job} -o %N").stdout.strip()
             r = ssh_login(A, "cat /proc/self/cgroup", host=node)
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertIn(f"job_{job}", r.stdout)
+            # Adopted logins go into the job's "extern" step, under slurmstepd.
+            self.assertRegex(r.stdout, r"/slurmstepd\.scope/[^/]+/step_extern/")
         finally:
             cancel(job)
 

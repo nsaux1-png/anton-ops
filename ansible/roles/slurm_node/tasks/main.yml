@@ -97,13 +97,22 @@
     daemon_reload: true
   when: not (ansible_check_mode and (slurm_packages is changed or slurm_packages is skipped))   # first-run preview
 
+# password-auth's account part ends with "sufficient pam_localuser.so". Pulled in with "include", that
+# ends the whole check for every local user before pam_slurm_adopt, so customers got in without a job
+# (live tests, 2026-10-21). As a substack it ends only password-auth's part.
+- name: password-auth's account checks as a substack, so the job check after them still runs
+  ansible.builtin.replace:
+    path: /etc/pam.d/sshd
+    regexp: '^account(\s+)include(\s+)password-auth\s*$'
+    replace: 'account\1substack\2password-auth'
+
 # Admins (group wheel) skip the check; everyone else needs a running job on this node to log in, and
 # their login is put inside that job (so it's limited and billed like the job).
 - name: Logins only for users with a job here
   ansible.builtin.blockinfile:
     path: /etc/pam.d/sshd
     marker: "# {mark} pam_slurm_adopt (managed by Ansible, ansible/roles/slurm_node, SOP-155)"
-    insertafter: '^account\s+include\s+password-auth'
+    insertafter: '^account\s+(include|substack)\s+password-auth'
     block: |
       account    [success=done default=ignore] pam_succeed_if.so quiet user ingroup wheel
       account    required     pam_slurm_adopt.so action_adopt_failure=deny action_generic_failure=deny
