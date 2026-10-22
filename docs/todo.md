@@ -22,6 +22,7 @@ The cluster is ready for test customers end to end. These are what's left before
 - [ ] **Claude:** After COP-44: a supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry). Then drop `initcall_debug` (move it to `kernel_args_remove`), and the driver's proof runs (SOP-111).
 - [x] **you:** Someone at douglas1's console got it running on 2026-10-20 (up since 16:17).
 - [x] **Claude:** douglas1's logs read (2026-10-21): the driver loads fine; the 10-19 reboot stopped before any boot started, probably hardware around GPU `0000:01:00.0`.
+- [x] **Claude, 2026-10-22:** SOP-155 proof run; the whole suite, 133 code tests and 198 live tests passing.
 - [x] **Claude, 2026-10-21:**
   - persistent journal (SOP-106) and kernel options (SOP-107)
   - accounts, logins, `/cluster` on douglas1

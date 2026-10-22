@@ -240,3 +240,28 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
 - A plain `#!/bin/bash` job script can use `module`, so the guide doesn't need `#!/bin/bash -l`.
 - **The customers' guide rewritten** for what exists now: copying files in, the login node's limits, each job's private `/tmp` and `--tmp`, interactive sessions and arrays, the shared software and packages on top, conda, containers, compiling, Jupyter and VS Code, internet on the login node only, and the mistakes. Compute is billed per second, which the code always did; the guide said per minute.
   - Published at `/cluster/docs/guide.md` (`20261021-235247-apply.log`).
+
+## 12. SOP-155 proof run, health additions, and the whole suite (2026-10-22, just after midnight)
+- **`./cluster health`** now also checks:
+  - `/scratch` as the host sees it (PID 1's mount namespace), and its fill level
+  - that the shared software is complete (`cluster-software check`)
+  - that the login node's customer rules are loaded
+  - (from earlier) munge, slurmd, all 10 GPUs, and no GPU or PCIe errors since boot
+
+  Code tests 133. All healthy.
+- **SOP-155 proof run on douglas1**, with the node idle and the spare SSH session open:
+  1. Undid everything `slurm_node` sets up:
+     - slurmd stopped and disabled
+     - the `pam_slurm_adopt` block, the substack and `pam_systemd`
+     - the cluster firewall zone
+     - `gres.conf`, `job_container.conf`, the task prolog and slurmd's drop-in
+     - the SELinux module, and PMIx
+
+     A new admin login still worked.
+  2. `test_slurm_node`: 12 failures, as expected, including "a customer without a job is refused".
+  3. One apply (`20261022-001658-apply.log`), "Done and settled": admin login fine, slurmd active, node idle, with no drain this time.
+  - SOP-155's undo steps were brought up to date with today's additions.
+- **The whole suite** (`20261022-002727-test.log`, 1169 s):
+  - code tests: **133 of 133**
+  - live tests: **197 of 198**. The one failure was the old per-user GPU-limit test in `test_slurm.py`, running for the first time with a GPU node up. It read Slurm's initial "None" reason, the same race as the grace test. Fixed, and it passes.
+- `docs/status.md` (where things stand) and the to-do's "Before the first real customer" list written for the user.

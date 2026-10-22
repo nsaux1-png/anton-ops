@@ -1,5 +1,5 @@
 # SOP-155: Slurm on GPU nodes
-**Status:** applied and tested on douglas1 2026-10-21 (16/16); proof run (undo, then rebuild) to do
+**Status:** proved 2026-10-22 on douglas1 ([ops log](../ops-log/2026-10-21-douglas1-setup.md)): undone, the tests failed, one apply rebuilt it
 
 ## Purpose
 A GPU node runs customers' jobs and nothing else:
