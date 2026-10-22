@@ -49,6 +49,7 @@
     - time
     - shared_storage
     - slurm_common
+    - slurm_node
 
 - name: GPU nodes
   hosts: gpu_nodes
