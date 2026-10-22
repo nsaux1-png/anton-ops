@@ -135,7 +135,7 @@ PY
         job = r.stdout.strip().split(";")[0]
         out = ME.run(f"cat ~/cluster-test-train-{job}.out").stdout
         self.assertIn("trained on NVIDIA GeForce RTX 5070 Ti True", out)
-        st = ME.run(f"sacct -n -X -j {job} -o State").stdout.split()
+        st = ME.run(f"sacct -n -X -j {job} -o State%30").stdout.split()
         self.assertEqual(st, ["COMPLETED"])
         run(HEAD, "sudo /usr/local/sbin/cluster-billing hourly")
         usage = yaml.safe_load(ME.run("myusage --json").stdout)
@@ -145,7 +145,9 @@ PY
 
     def test_an_interactive_session(self):
         r = ME.run("script -qec \"srun --immediate=120 --pty --gpus=1 --time=2 bash -c 'nvidia-smi -L | wc -l'\" /dev/null")
-        self.assertEqual(r.stdout.strip().splitlines()[-1].strip(), "1", r.stdout + r.stderr)
+        # The pty echoes its own control characters (a NUL shows as "^@"), so take the last number printed.
+        numbers = __import__("re").findall(r"\d+", r.stdout)
+        self.assertEqual(numbers[-1] if numbers else None, "1", r.stdout + r.stderr)
 
     def test_a_job_array(self):
         r = ME.run("sbatch --parsable --wait --array=1-3 --gpus=1 --time=2 --output=cluster-test-array-%a.out "
@@ -211,7 +213,7 @@ class CommonMistakes(unittest.TestCase):
         r = ME.run("sbatch --parsable --wait --gpus=1 --time=3 --wrap "
                    "\"python3 -c 'b = b\\\"x\\\" * (25 * 1024**3)'\"", timeout=600)
         job = r.stdout.strip().split(";")[0]
-        state = wait_until(lambda: ME.run(f"sacct -n -X -j {job} -o State").stdout.strip() or None, seconds=60)
+        state = wait_until(lambda: ME.run(f"sacct -n -X -j {job} -o State%30").stdout.strip() or None, seconds=60)
         self.assertEqual(state, "OUT_OF_MEMORY", "a job over its 20 GB per GPU is stopped, and says so")
 
 
