@@ -64,11 +64,16 @@ A core and the memory beyond `gpu_slots` × 20 GB are kept for the system (`Core
 - **Jobs wait with `QOSGrpBillingMinutes`:** that customer has no credit. That's billing working (SOP-161).
 
 ## Undo
+Through a spare SSH session to the node:
 1. `sudo systemctl disable --now slurmd`
-2. Delete the `pam_slurm_adopt` block from `/etc/pam.d/sshd`, and un-comment `pam_systemd` in `/etc/authselect/password-auth`.
-3. `sudo firewall-cmd --permanent --delete-zone=cluster && sudo firewall-cmd --reload`
-4. `sudo rm -rf /etc/slurm/gres.conf /etc/systemd/system/slurmd.service.d && sudo systemctl daemon-reload`
-5. Remove `slurm_node` from the compute play in `ansible/site.yml`.
+2. The login rules:
+   - delete the `# BEGIN/END pam_slurm_adopt` block from `/etc/pam.d/sshd`
+   - change `account substack password-auth` back to `include`
+   - un-comment `pam_systemd` in `/etc/authselect/password-auth`
+3. `sudo firewall-cmd --permanent --delete-zone=cluster && sudo firewall-cmd --reload`. Cluster traffic falls back to the `public` zone, which allows SSH.
+4. `sudo rm -rf /etc/slurm/gres.conf /etc/slurm/job_container.conf /etc/slurm/task_prolog.sh /etc/systemd/system/slurmd.service.d /usr/local/share/cluster/selinux && sudo systemctl daemon-reload`
+5. `sudo semodule -r cluster_pam_slurm_adopt` and `sudo dnf remove pmix`
+6. Remove `slurm_node` from the compute play in `ansible/site.yml`.
 
 ## History
 - 2026-10-21: first version, applied to douglas1 ([ops log](../ops-log/2026-10-21-douglas1-setup.md)).
