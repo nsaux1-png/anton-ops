@@ -82,6 +82,15 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Claude:** `./cluster billing-report <month>`, giving usage per account as CSV.
 
 ## 8. Before onboarding customers
+- [ ] **you:** Q10 (`slurm-design.md`): customers install their own software; we add only the base packages and Apptainer?
+- [ ] **Claude:** Customers install their own software, with live tests (requirement 16):
+  - as a test user on the login node: a venv plus `pip install`, then importing it inside a GPU job on douglas1, which has no internet
+  - conda or micromamba in the home folder, used in a job
+  - PyTorch (CUDA 12.8+ wheels) built once in a test user's home, then a GPU matrix multiply on every GPU in a job, every week. Rebuilt from scratch monthly, to avoid a few-GB download every week over the office network
+  - Apptainer, if Q10 says yes: pull an image on the login node, run it in a job with `--nv`
+  - an install over the storage limit fails with "Disk quota exceeded" and leaves the account usable
+  - a job that tries to `pip install` gets a clear network error
+  - the test customers' 1 GB storage limit is too small for this; a bigger limit for one of them
 - [ ] SSH hardening on anton: key-only logins, no root login, fail2ban.
 - [ ] Back-up plan for the accounting database and `/raiddrive`.
 - [ ] Onboarding procedure and `./cluster add-user`, tested end to end.
