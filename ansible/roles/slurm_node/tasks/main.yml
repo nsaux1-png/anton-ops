@@ -15,6 +15,29 @@
     state: reloaded
   when: node_zone is changed and not ansible_check_mode
 
+# Open the zone before sending traffic to it: the other way round cut off new SSH logins to douglas1
+# on 2026-10-21 (ops log 2026-10-21-douglas1-setup).
+- name: SSH open to the cluster network
+  ansible.posix.firewalld:
+    zone: cluster
+    service: ssh
+    permanent: true
+    immediate: true
+    state: enabled
+  when: not (ansible_check_mode and node_zone is changed)
+
+- name: slurmd, and srun inside jobs, open to the cluster network
+  ansible.posix.firewalld:
+    zone: cluster
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - 6818/tcp                                       # slurmd
+    - "{{ slurm_srun_ports }}/tcp"                    # srun in a job script listens here (multi-node jobs)
+  when: not (ansible_check_mode and node_zone is changed)
+
 - name: Traffic from the cluster network uses the cluster zone
   ansible.posix.firewalld:
     zone: cluster
@@ -22,18 +45,6 @@
     permanent: true
     immediate: true
     state: enabled
-  when: not (ansible_check_mode and node_zone is changed)
-
-- name: SSH and slurmd open to the cluster network
-  ansible.posix.firewalld:
-    zone: cluster
-    "{{ item.kind }}": "{{ item.value }}"
-    permanent: true
-    immediate: true
-    state: enabled
-  loop:
-    - { kind: service, value: ssh }
-    - { kind: port, value: 6818/tcp }
   when: not (ansible_check_mode and node_zone is changed)
 
 - name: gres.conf (NVIDIA's library finds the GPUs and their model)

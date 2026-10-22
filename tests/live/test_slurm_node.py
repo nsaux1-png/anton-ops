@@ -73,11 +73,26 @@ class Slurmd(unittest.TestCase):
                 reserved = var(node, "slurm_real_memory_mb") - var(node, "gpu_slots") * SLURM["slurm_mem_per_gpu_mb"]
                 self.assertEqual(fields["MemSpecLimit"], str(reserved))
 
-    def test_slurmd_port_open_to_the_cluster_network_only(self):
+    def test_ports_open_to_the_cluster_network_only(self):
         for node in NODES:
             with self.subTest(node=node):
-                self.assertIn("6818/tcp", run(node, "sudo firewall-cmd --zone=cluster --list-ports").stdout.split())
-                self.assertNotIn("6818/tcp", run(node, "sudo firewall-cmd --zone=public --list-ports").stdout.split())
+                ports = run(node, "sudo firewall-cmd --zone=cluster --list-ports").stdout.split()
+                self.assertIn("6818/tcp", ports)
+                self.assertIn(f"{SLURM['slurm_srun_ports']}/tcp", ports)
+                self.assertIn("ssh", run(node, "sudo firewall-cmd --zone=cluster --list-services").stdout.split())
+                self.assertIn(var(node, "cluster_network"),
+                              run(node, "sudo firewall-cmd --zone=cluster --list-sources").stdout.split())
+                public = run(node, "sudo firewall-cmd --zone=public --list-ports").stdout.split()
+                self.assertNotIn("6818/tcp", public)
+
+    def test_the_firewall_rules_survive_a_reload(self):
+        """The rules are permanent, not only in the running firewall: compare the two."""
+        for node in NODES:
+            with self.subTest(node=node):
+                for what in ("services", "ports", "sources"):
+                    now = run(node, f"sudo firewall-cmd --zone=cluster --list-{what}").stdout.split()
+                    saved = run(node, f"sudo firewall-cmd --permanent --zone=cluster --list-{what}").stdout.split()
+                    self.assertEqual(sorted(now), sorted(saved), what)
 
     def test_no_plugin_errors_since_slurmd_started(self):
         for node in NODES:

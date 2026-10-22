@@ -123,6 +123,15 @@ class PreviewSeesEveryCommand(unittest.TestCase):
         ]
         self.assertEqual(real_run_only("somerole", tasks), ["start it"])
 
+    def test_no_templated_parameter_names(self):
+        """Ansible templates values, not names: '{{ item.kind }}: ...' reaches the module as a literal name
+        (slurm_node's firewall task, 2026-10-21). A first-run preview often skips such a task, so check here."""
+        for path in role_files("tasks") + role_files("handlers"):
+            with self.subTest(file=os.path.relpath(path, REPO)):
+                bad = [t.get("name") for t in flatten(load(path))
+                       for k, v in t.items() if isinstance(v, dict) and any("{{" in str(name) for name in v)]
+                self.assertEqual(bad, [])
+
     def test_the_check_catches_a_blind_task(self):
         tasks = [
             {"name": "check", "ansible.builtin.command": "probe", "register": "probe",
