@@ -21,6 +21,7 @@
     - repos
     - accounts
     - customer_access
+    - user_environment
 
 - name: Head node
   hosts: head

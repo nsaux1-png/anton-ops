@@ -24,6 +24,7 @@ SlurmdDebug=info
 ProctrackType=proctrack/cgroup
 TaskPlugin=task/cgroup,task/affinity
 PrologFlags=Contain
+TaskProlog=/etc/slurm/task_prolog.sh   # on the nodes (slurm_node): TMPDIR=/tmp in jobs
 SelectType=select/cons_tres
 SelectTypeParameters=CR_Core_Memory
 GresTypes=gpu

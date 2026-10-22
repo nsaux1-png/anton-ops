@@ -1,0 +1,8 @@
+# Managed by Ansible (ansible/roles/user_environment), SOP-143.
+# On the login node, customers' temporary files (pip builds, container pulls) go to their own folder, which
+# counts against their storage limit, instead of filling the system disk the cluster's services need.
+# Jobs get a private /tmp of their own: Slurm's task prolog sets TMPDIR=/tmp there.
+if [ -z "${SLURM_JOB_ID:-}" ] && [ "$(id -u)" -ge {{ customer_uid_min }} ]; then
+    export TMPDIR="$HOME/.tmp"
+    [ -d "$TMPDIR" ] || mkdir -m 700 -p "$TMPDIR" 2>/dev/null
+fi

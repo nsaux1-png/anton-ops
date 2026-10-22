@@ -58,6 +58,14 @@
     mode: "0644"
   notify: Restart Slurm daemons
 
+- name: Task prolog (each task's environment, SOP-155)
+  ansible.builtin.copy:
+    src: task_prolog.sh
+    dest: /etc/slurm/task_prolog.sh
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: slurmd's spool folder
   ansible.builtin.file:
     path: /var/spool/slurmd

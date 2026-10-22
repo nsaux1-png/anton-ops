@@ -1,0 +1,64 @@
+# What customers get on the login node and compute nodes (SOP-143): the packages that need root, the shared
+# software's module path, containers that see /cluster, and (login node) temporary files kept in the
+# customer's own space, a welcome message and the guide. Everything else they install themselves.
+- name: Packages for customers' software
+  ansible.builtin.dnf:
+    name: "{{ user_packages }}"
+    state: present
+  register: user_packages_result
+
+- name: The shared software's modules, after the system's own
+  ansible.builtin.copy:
+    dest: /etc/environment-modules/modulespath
+    content: |
+      # Managed by Ansible (ansible/roles/user_environment), SOP-143.
+      # Where `module avail` looks. The last one is the shared software (SOP-144).
+      /usr/share/Modules/modulefiles:/etc/modulefiles:/usr/share/modulefiles:{{ shared_software_dir }}/modulefiles
+    owner: root
+    group: root
+    mode: "0644"
+  when: not (ansible_check_mode and user_packages_result is changed)
+
+- name: Containers see all of /cluster (home, projects, shared software)
+  ansible.builtin.lineinfile:
+    path: /etc/apptainer/apptainer.conf
+    regexp: '^bind path = /cluster$'
+    line: bind path = /cluster
+    insertafter: '^bind path = '
+  when: not (ansible_check_mode and user_packages_result is changed)
+
+- name: On the login node, customers' temporary files go to their own folder
+  ansible.builtin.template:
+    src: cluster-user.sh.j2
+    dest: /etc/profile.d/cluster-user.sh
+    owner: root
+    group: root
+    mode: "0644"
+  when: "'login_nodes' in group_names"
+
+- name: Welcome message on the login node
+  ansible.builtin.template:
+    src: welcome.j2
+    dest: /etc/motd.d/cluster-welcome
+    owner: root
+    group: root
+    mode: "0644"
+  when: "'login_nodes' in group_names"
+
+- name: Folder for the customers' guide
+  ansible.builtin.file:
+    path: /cluster/docs
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: inventory_hostname == storage_server
+
+- name: The customers' guide, where they can read it
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../docs/user-guide.md"
+    dest: /cluster/docs/guide.md
+    owner: root
+    group: root
+    mode: "0644"
+  when: inventory_hostname == storage_server

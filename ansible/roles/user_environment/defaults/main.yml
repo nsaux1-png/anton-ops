@@ -1,0 +1,67 @@
+# What customers get on the login node and the compute nodes (SOP-143). They install their own software
+# (pip, conda, containers) in their own folders; these are the parts that need root. Same list everywhere,
+# so whatever builds on the login node runs in a job.
+user_packages:
+  # building software
+  - gcc
+  - gcc-c++
+  - gcc-gfortran
+  - make
+  - cmake
+  - autoconf
+  - automake
+  - libtool
+  - pkgconf-pkg-config
+  - patch
+  - git
+  - git-lfs
+  # Python 3.12 (the shared software is built on it), and headers for building Python packages
+  - python3.12
+  - python3.12-devel
+  - python3.12-pip
+  - python3-devel
+  - openssl-devel
+  - libffi-devel
+  - zlib-devel
+  - bzip2-devel
+  - xz-devel
+  - sqlite-devel
+  - readline-devel
+  - ncurses-devel
+  # libraries common Python packages expect (OpenCV needs libGL and the X libraries even without a screen)
+  - mesa-libGL
+  - glib2
+  - libSM
+  - libXext
+  - libXrender
+  - numactl
+  # everyday tools
+  - tar
+  - gzip
+  - bzip2
+  - xz
+  - zstd
+  - unzip
+  - zip
+  - rsync
+  - wget
+  - curl
+  - jq
+  - tree
+  - file
+  - which
+  - less
+  - vim-enhanced
+  - nano
+  - tmux
+  - screen
+  - htop
+  - time
+  - bc
+  # containers without root (Apptainer mounts images with squashfuse), and the module command
+  - apptainer
+  - squashfuse
+  - fuse-overlayfs
+  - environment-modules
+
+shared_software_dir: /cluster/software

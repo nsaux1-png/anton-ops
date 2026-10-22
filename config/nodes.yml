@@ -21,6 +21,9 @@ all:
           cluster_ip: 172.16.50.1
           upstream_ip: 192.168.5.200  # on eno1, the office network
           storage_device: UUID=000658eb-2151-432f-b0e9-d7c43b3f1439   # the RAID1 mirror (md0) mounted at /raiddrive
+    login_nodes:                    # where customers log in and install software (a separate machine later: Q8)
+      hosts:
+        anton:
     compute:
       children:
         gpu_nodes:
