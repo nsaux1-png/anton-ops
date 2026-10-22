@@ -273,3 +273,8 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
 - **Fix:** `ExecStart=/usr/bin/python3 <repo>/cluster test`. Python is a system program, which systemd may run, and it reads the script. Applied (`20261022-004918-apply.log`).
 - New live test `tests/live/test_schedule.py`: every cluster timer is enabled with a next run, and each service starts a program systemd may execute (not `user_home_t`). It failed on the old unit and passes on the new one.
 - Then started the weekly run under systemd for real; its result is below.
+- **First weekly run under systemd** (`20261022-005421-test.log`): it worked, with 133 of 133 code tests and 199 of 200 live tests.
+  - The one failure: `test_a_grant_counts_once_and_raises_the_slurm_limit` was off by one billing-minute. It read c0002's balance before an hourly run, and that run also charged c0002's finished test jobs.
+  - Fixed: the limit is compared with the balance after the run, and the price comes from `rates.yml` instead of the placeholder 0.50.
+- **Second run under systemd** (`20261022-011522-test.log`): **133 of 133 code tests, 200 of 200 live tests.** Result=success, so `./cluster health` shows the weekly timer green.
+- Guide: Hugging Face caches in the project folder, and `HF_HUB_OFFLINE=1` in jobs. Published.
