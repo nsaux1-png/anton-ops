@@ -27,6 +27,21 @@ def as_user(user, command):
     return run(HEAD, f"sudo -u {user} bash -lc {shlex.quote('cd ~ && ' + command)}")
 
 
+def unit_minutes_per_micro():
+    """How many billing-unit-minutes one micro-credit buys on the gpu partition, from rates.yml today
+    (worked out here, not by the billing code)."""
+    import datetime
+    import os
+    import yaml
+    from decimal import Decimal
+    from helpers import REPO
+    with open(os.path.join(REPO, "config", "rates.yml")) as f:
+        rates = yaml.safe_load(f)
+    prices = [p for p in rates["prices"] if str(p["from"]) <= datetime.date.today().isoformat()][-1]
+    gpu_hour = int(Decimal(str(prices["gpu_hour"][rates["partitions"]["gpu"]])) * 1_000_000)
+    return gpu_hour // rates["units_per_gpu"]          # micro-credits per unit-hour
+
+
 def qos_limit(code):
     out = run(HEAD, f"sudo scontrol show assoc_mgr flags=qos qos=cust-{code}").stdout
     m = re.search(r"GrpTRESMins=\S*?billing=(N|\d+)\((\d+)\)", out)
@@ -61,9 +76,11 @@ class CreditsAndLimits(unittest.TestCase):
         after = balance("c0002")["available"]
         self.assertEqual(after - before, 1_500_000, "granted once, not twice")
         self.assertEqual(billing("hourly").returncode, 0)
+        # The hourly run also charges jobs that ended since the last one (c0002 runs real test jobs), so the
+        # limit is checked against the balance as it is now, not as it was before the run.
+        now = balance("c0002")["available"]
         limit, used = qos_limit("c0002")
-        # 0.50 per GPU-hour / 10 units = 50,000 micro per unit-hour: each credit buys 1200 unit-minutes
-        self.assertEqual(limit, used + max(0, after) * 60 // 50_000)
+        self.assertEqual(limit, used + max(0, now) * 60 // unit_minutes_per_micro())
         billing("adjust", "c0002", "-1.50", "--ref", ref + "-undo", "--note", "live test: take the grant back")
 
     def test_sync_is_idempotent(self):
