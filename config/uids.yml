@@ -3,6 +3,7 @@
 groups:   # one per customer; GID 20000 and up
   c0001: 20000
   c0002: 20001
+  c0003: 20002
 users:    # UID 10100 and up
   zz01: 10100
   zz02: 10101
