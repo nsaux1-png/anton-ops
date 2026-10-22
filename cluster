@@ -278,8 +278,14 @@ def cmd_health(args, log):
     leap = helpers.run(head, "chronyc -n tracking | grep 'Leap status'").stdout.split(":")[-1].strip()
     add(head, "time", (leap == "Normal", f"leap status {leap or 'unknown'}"))
     for node in helpers.hosts("compute"):
-        if reachable.get(node):
-            services(node, health.NODE_SERVICES + (health.GPU_NODE_SERVICES if node in helpers.hosts("gpu_nodes") else []))
+        if not reachable.get(node):
+            continue
+        gpu_node = node in helpers.hosts("gpu_nodes")
+        services(node, health.NODE_SERVICES + (health.GPU_NODE_SERVICES if gpu_node else []))
+        if gpu_node:
+            add(node, "GPUs", health.gpus_ok(helpers.run(node, "nvidia-smi -L").stdout, helpers.var(node, "gpu_count")))
+            kernel_log = helpers.run(node, "journalctl -k -b -q --no-pager").stdout
+            add(node, "GPU and PCIe errors", health.gpu_errors_ok(kernel_log))
 
     lines, ok = health.summary(results)
     if args.json:

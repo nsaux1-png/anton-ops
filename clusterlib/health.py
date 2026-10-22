@@ -8,7 +8,7 @@ import datetime
 import re
 
 HEAD_SERVICES = ["sshd", "firewalld", "chronyd", "munge", "mariadb", "slurmdbd", "slurmctld", "nfs-server", "squid"]
-NODE_SERVICES = ["sshd", "chronyd", "cluster-egress"]
+NODE_SERVICES = ["sshd", "chronyd", "cluster-egress", "munge", "slurmd"]
 GPU_NODE_SERVICES = ["nvidia-persistenced"]
 TIMERS = {"cluster-billing-hourly": 2, "cluster-backup-binlogs": 2, "cluster-backup-nightly": 26,
           "cluster-tests-weekly": 24 * 8}       # how many hours since its last run before it's a problem
@@ -54,6 +54,24 @@ def nodes_ok(sinfo_lines):
     """`sinfo -h -N -o '%N %T'` lines: no node down, drained or failing."""
     bad = [line for line in sinfo_lines if re.search(r"down|drain|fail|unknown|not_responding", line.lower())]
     return (not bad), ("all nodes up" if not bad else "; ".join(bad))
+
+
+GPU_LOG_PROBLEMS = re.compile(r"NVRM: Xid|fallen off the bus|\[Hardware Error\]")
+
+
+def gpus_ok(nvidia_smi_list, expected):
+    """`nvidia-smi -L` output: every GPU the node should have is there."""
+    found = sum(1 for line in nvidia_smi_list.splitlines() if line.startswith("GPU "))
+    return found == expected, f"{found} of {expected} GPUs"
+
+
+def gpu_errors_ok(kernel_log):
+    """Kernel log lines since boot: no NVIDIA Xid errors, no GPU fallen off the bus, no PCIe hardware errors
+    (even corrected ones point at a riser or slot problem, as on douglas1 on 2026-10-20)."""
+    problems = [line for line in kernel_log.splitlines() if GPU_LOG_PROBLEMS.search(line)]
+    if not problems:
+        return True, "none since boot"
+    return False, f"{len(problems)} line(s) since boot, the first: {problems[0].strip()[:120]}"
 
 
 def summary(results):

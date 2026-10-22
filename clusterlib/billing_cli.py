@@ -333,7 +333,7 @@ def cmd_check(args, ledger, customers, uids, rates):
 
 
 def cmd_setup(args, ledger, customers, uids, rates):
-    print("created tables" if ledger.setup() else "", end="")
+    print(ledger.setup(), end="")
     return 0
 
 

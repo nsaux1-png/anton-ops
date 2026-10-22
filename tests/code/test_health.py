@@ -44,6 +44,24 @@ class Checks(unittest.TestCase):
         self.assertIn("douglas1", detail)
         self.assertFalse(h.nodes_ok(["douglas1 drained"])[0])
 
+    def test_gpus(self):
+        listing = "\n".join(f"GPU {i}: NVIDIA GeForce RTX 5070 Ti (UUID: GPU-{i})" for i in range(10))
+        self.assertEqual(h.gpus_ok(listing, 10), (True, "10 of 10 GPUs"))
+        ok, detail = h.gpus_ok("\n".join(listing.splitlines()[:9]), 10)
+        self.assertFalse(ok)
+        self.assertEqual(detail, "9 of 10 GPUs")
+        self.assertFalse(h.gpus_ok("NVIDIA-SMI has failed because it couldn't communicate with the driver", 10)[0])
+
+    def test_gpu_and_pcie_errors(self):
+        self.assertEqual(h.gpu_errors_ok("kernel: NVRM: loading NVIDIA UNIX Open Kernel Module\n"), (True, "none since boot"))
+        for line in ("kernel: NVRM: Xid (PCI:0000:01:00): 79, pid=1234, GPU has fallen off the bus.",
+                     "kernel: {1}[Hardware Error]: event severity: corrected",
+                     "kernel: NVRM: GPU 0000:45:00.0: GPU has fallen off the bus."):
+            with self.subTest(line=line):
+                ok, detail = h.gpu_errors_ok("kernel: ordinary line\n" + line)
+                self.assertFalse(ok)
+                self.assertIn("1 line(s)", detail)
+
     def test_summary(self):
         lines, ok = h.summary([("anton", "slurmctld", True, "active"), ("douglas1", "reachable", False, "no route")])
         self.assertFalse(ok)

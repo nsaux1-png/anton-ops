@@ -119,6 +119,71 @@ class Credits(unittest.TestCase):
         self.assertEqual((bal["balance"], bal["debt"]), (-20 * M, 20 * M))
 
 
+class JobRecordIds(unittest.TestCase):
+    """Slurm 26.05's job record IDs (sacct DBIndex) go above 2^63 (found 2026-10-21)."""
+    SLURM_26_ID = 15106908804199296000
+
+    def setUp(self):
+        self.l = fresh()
+        self.addCleanup(self.l.close)
+
+    def test_a_slurm_26_id_is_kept_exactly_and_charged(self):
+        self.l.record_job(self.SLURM_26_ID, "22", C, "zz01", "gpu", 10, 50_000, T0)
+        self.assertEqual(self.l.job(self.SLURM_26_ID)["db_index"], self.SLURM_26_ID)
+        self.l.add_credit(C, "grant", 10 * M, "G-1", "", "t", at=T0)
+        charged = self.l.charge_job(self.SLURM_26_ID, 3600, "COMPLETED", T0 + HOUR, "t", at=T0 + HOUR)
+        self.assertEqual(charged, b.job_cost(10, 3600, 50_000))
+
+    def test_two_big_ids_stay_two_jobs(self):
+        self.l.record_job(self.SLURM_26_ID, "22", C, "zz01", "gpu", 10, 50_000, T0)
+        self.l.record_job(self.SLURM_26_ID + 1, "23", C, "zz01", "gpu", 10, 50_000, T0)
+        self.assertEqual(self.l.job(self.SLURM_26_ID + 1)["job_id"], "23")
+        self.assertEqual(self.l.job(self.SLURM_26_ID)["job_id"], "22")
+
+    def test_recording_the_same_job_twice_changes_nothing(self):
+        self.l.record_job(self.SLURM_26_ID, "22", C, "zz01", "gpu", 10, 50_000, T0)
+        self.l.record_job(self.SLURM_26_ID, "99", C, "zz01", "gpu", 20, 1, T0 + HOUR)
+        job = self.l.job(self.SLURM_26_ID)
+        self.assertEqual((job["job_id"], job["units"], job["unit_hour_price"]), ("22", 10, 50_000))
+
+    def test_an_id_that_doesnt_fit_is_refused_not_clamped(self):
+        with self.assertRaises(Exception):
+            self.l.record_job(2**64, "24", C, "zz01", "gpu", 10, 50_000, T0)
+        self.l.db.rollback()
+        with self.l.db.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM job_charges")
+            self.assertEqual(c.fetchone()[0], 0)
+        self.l.db.rollback()
+
+    def test_migration_from_version_1(self):
+        """The old signed column, with a record clamped to 2^63 - 1: setup makes the column unsigned and drops
+        the clamped record, which never held money."""
+        with self.l.db.cursor() as c:
+            c.execute("ALTER TABLE job_charges MODIFY db_index BIGINT NOT NULL")
+            c.execute("UPDATE schema_version SET version=1")
+            c.execute("INSERT INTO job_charges (db_index, job_id, customer, username, partition_name, units, "
+                      "unit_hour_price, started_at, state) VALUES (%s,'22',%s,'zz01','gpu',10,50000,%s,'RUNNING')",
+                      (2**63 - 1, C, T0))
+        self.l.db.commit()
+        done = self.l.setup()
+        self.assertIn("dropped 1 clamped record", done)
+        self.l.record_job(self.SLURM_26_ID, "22", C, "zz01", "gpu", 10, 50_000, T0)
+        self.assertEqual(self.l.job(self.SLURM_26_ID)["db_index"], self.SLURM_26_ID)
+        self.assertIsNone(self.l.job(2**63 - 1))
+        self.assertEqual(self.l.setup(), "", "a second setup finds nothing to do")
+
+    def test_migration_stops_if_a_clamped_record_holds_charges(self):
+        with self.l.db.cursor() as c:
+            c.execute("ALTER TABLE job_charges MODIFY db_index BIGINT NOT NULL")
+            c.execute("UPDATE schema_version SET version=1")
+            c.execute("INSERT INTO job_charges (db_index, job_id, customer, username, partition_name, units, "
+                      "unit_hour_price, started_at, state, charged) "
+                      "VALUES (%s,'22',%s,'zz01','gpu',10,50000,%s,'RUNNING',5)", (2**63 - 1, C, T0))
+        self.l.db.commit()
+        with self.assertRaises(b.BillingError):
+            self.l.setup()
+
+
 class Jobs(unittest.TestCase):
     def setUp(self):
         self.l = fresh()

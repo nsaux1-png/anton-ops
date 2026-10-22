@@ -21,7 +21,9 @@ import pymysql
 
 from clusterlib import billing
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+# Slurm 26.05's job record IDs (sacct DBIndex) go above 2^63, so the column is unsigned (2026-10-21).
+CLAMPED_DB_INDEX = 2**63 - 1      # what MariaDB stored instead, in a signed column, under INSERT IGNORE
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS schema_version (version INT NOT NULL) ENGINE=InnoDB""",
     """CREATE TABLE IF NOT EXISTS entries (
@@ -54,7 +56,7 @@ SCHEMA = [
          FOREIGN KEY (entry_id) REFERENCES entries (id)
        ) ENGINE=InnoDB""",
     """CREATE TABLE IF NOT EXISTS job_charges (
-         db_index BIGINT PRIMARY KEY,
+         db_index BIGINT UNSIGNED PRIMARY KEY,
          job_id VARCHAR(32) NOT NULL,
          customer VARCHAR(16) NOT NULL,
          username VARCHAR(16) NOT NULL,
@@ -107,8 +109,10 @@ class Ledger:
                  socket="/var/lib/mysql/mysql.sock"):
         with open(password_file) as f:
             password = f.read().strip()
+        # Strict: a value that doesn't fit is an error, never quietly changed.
         self.db = pymysql.connect(unix_socket=socket, user=user, password=password, database=database,
-                                  autocommit=False, charset="utf8mb4")
+                                  autocommit=False, charset="utf8mb4",
+                                  init_command="SET SESSION sql_mode='STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION'")
 
     def close(self):
         self.db.close()
@@ -116,19 +120,36 @@ class Ledger:
     # --- setup --------------------------------------------------------------------------------------
 
     def setup(self):
-        """Create the tables if they don't exist. Returns True if anything was created."""
+        """Create the tables if they don't exist, and bring older ones up to SCHEMA_VERSION.
+        Returns what it did, as text ("" if nothing)."""
+        done = []
         with self.db.cursor() as c:
             c.execute("SHOW TABLES")
             before = {row[0] for row in c.fetchall()}
             for statement in SCHEMA:
                 c.execute(statement)
-            c.execute("SELECT COUNT(*) FROM schema_version")
-            if c.fetchone()[0] == 0:
-                c.execute("INSERT INTO schema_version VALUES (%s)", (SCHEMA_VERSION,))
             c.execute("SHOW TABLES")
-            after = {row[0] for row in c.fetchall()}
+            if {row[0] for row in c.fetchall()} != before:
+                done.append("created tables")
+            c.execute("SELECT version FROM schema_version")
+            row = c.fetchone()
+            if row is None:
+                c.execute("INSERT INTO schema_version VALUES (%s)", (SCHEMA_VERSION,))
+            elif row[0] < 2:
+                done.append(self._migrate_to_2(c))
+                c.execute("UPDATE schema_version SET version=2")
         self.db.commit()
-        return after != before
+        return "; ".join(done)
+
+    def _migrate_to_2(self, c):
+        """job_charges.db_index unsigned, and drop rows the signed column clamped (they never held money)."""
+        c.execute("SELECT COUNT(*) FROM job_charges WHERE db_index=%s AND (charged<>0 OR refunded<>0)",
+                  (CLAMPED_DB_INDEX,))
+        if c.fetchone()[0]:
+            raise billing.BillingError("a clamped job record holds charges: needs a person (ops log 2026-10-21)")
+        c.execute("ALTER TABLE job_charges MODIFY db_index BIGINT UNSIGNED NOT NULL")
+        dropped = c.execute("DELETE FROM job_charges WHERE db_index=%s", (CLAMPED_DB_INDEX,))
+        return f"job record IDs now unsigned; dropped {dropped} clamped record(s) with no charges"
 
     # --- writing ------------------------------------------------------------------------------------
 
@@ -318,8 +339,10 @@ class Ledger:
     def record_job(self, db_index, job_id, customer, username, partition, units, unit_hour_price, started_at):
         """Start tracking a job's charges; its price is fixed now, at its start (design section 9)."""
         with self.db.cursor() as c:
-            c.execute("INSERT IGNORE INTO job_charges (db_index, job_id, customer, username, partition_name, units, "
-                      "unit_hour_price, started_at, state) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'RUNNING')",
+            # Already tracked: leave it. (Not INSERT IGNORE, which also hides values that don't fit.)
+            c.execute("INSERT INTO job_charges (db_index, job_id, customer, username, partition_name, units, "
+                      "unit_hour_price, started_at, state) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'RUNNING') "
+                      "ON DUPLICATE KEY UPDATE db_index=db_index",
                       (db_index, job_id, customer, username, partition, units, unit_hour_price, started_at))
         self.db.commit()
 
@@ -408,7 +431,8 @@ class Ledger:
         month = at.strftime("%Y-%m")
 
         def work(c):
-            c.execute("INSERT IGNORE INTO storage_readings VALUES (%s,%s,%s)", (customer, at, used_bytes))
+            c.execute("INSERT INTO storage_readings VALUES (%s,%s,%s) ON DUPLICATE KEY UPDATE customer=customer",
+                      (customer, at, used_bytes))
             c.execute("SELECT peak_bytes, gb_month_price FROM storage_months WHERE customer=%s AND month=%s "
                       "FOR UPDATE", (customer, month))
             row = c.fetchone()
