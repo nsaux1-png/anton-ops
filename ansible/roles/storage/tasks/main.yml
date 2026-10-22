@@ -17,8 +17,10 @@
   check_mode: false
 
 # Fails safely if anything is using /raiddrive: then it's a job for a maintenance window, not a surprise.
+# In PID 1's mount namespace: Ansible may run inside a service's own (sshd's, with ProtectProc), where a
+# mount never reaches the host or other services (found 2026-10-21, SOP-132).
 - name: Unmount and mount /raiddrive so the quota options take effect
-  ansible.builtin.shell: umount /raiddrive && mount /raiddrive
+  ansible.builtin.shell: nsenter -t 1 -m -- sh -c 'umount /raiddrive && mount /raiddrive'
   when: "quota_state.stdout.count('Enforcement: ON') < 3"
 
 - name: Customer folders
@@ -34,13 +36,22 @@
     - { path: /raiddrive/cluster/projects, mode: "0711" }
     - { path: /raiddrive/cluster/software, mode: "0755" }
 
-- name: /cluster on the head node too, so paths are the same everywhere
+- name: /cluster on the head node too, so paths are the same everywhere (fstab)
   ansible.posix.mount:
     path: /cluster
     src: /raiddrive/cluster
     fstype: none
     opts: bind,x-systemd.requires-mounts-for=/raiddrive
-    state: mounted
+    state: present
+  register: cluster_bind
+
+# systemd mounts it on the host itself, so every service sees it (not only Ansible's own session).
+- name: Mount /cluster through systemd
+  ansible.builtin.systemd:
+    name: cluster.mount
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and cluster_bind is changed)
 
 - name: NFS server
   ansible.builtin.dnf:

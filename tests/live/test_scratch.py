@@ -31,12 +31,15 @@ def background_job(user, script):
 
 
 class ScratchDisk(unittest.TestCase):
-    def test_scratch_is_the_nodes_own_disk(self):
+    def test_scratch_is_the_nodes_own_disk_on_the_host_and_in_slurmd(self):
+        """Checked in PID 1's and slurmd's mount namespaces: an SSH session has its own (ProtectProc), and on
+        2026-10-21 /scratch was mounted only there."""
         for node in NODES:
-            with self.subTest(node=node):
-                source, fstype = run(node, "findmnt -n -o SOURCE,FSTYPE /scratch").stdout.split()
-                device = run(node, f"readlink -f {var(node, 'scratch_device')}").stdout.strip()
-                self.assertEqual((source, fstype), (device, "xfs"))
+            device = run(node, f"readlink -f {var(node, 'scratch_device')}").stdout.strip()
+            for who, pid in (("host", "1"), ("slurmd", "$(pidof slurmd)")):
+                with self.subTest(node=node, namespace=who):
+                    out = run(node, f"sudo nsenter -t {pid} -m findmnt -n -o SOURCE,FSTYPE /scratch").stdout.split()
+                    self.assertEqual(out, [device, "xfs"])
                 self.assertIn("nofail", run(node, "findmnt -s -n -o OPTIONS /scratch").stdout,
                               "a dead scratch disk mustn't stop the node from booting")
 

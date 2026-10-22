@@ -20,14 +20,24 @@
   register: scratch_fs
 
 # nofail and a short device timeout: a dead scratch disk must never stop the node from booting.
-- name: Mount it at /scratch
+- name: /scratch in fstab
   ansible.posix.mount:
     path: /scratch
     src: "{{ scratch_device }}"
     fstype: xfs
     opts: defaults,noatime,nofail,x-systemd.device-timeout=30s
-    state: mounted
-  when: not (ansible_check_mode and scratch_fs is changed)
+    state: present
+  register: scratch_fstab
+
+# systemd mounts it on the host itself, where slurmd sees it. The first version mounted it from Ansible's SSH
+# session, which left it inside sshd's own mount namespace (ProtectProc): jobs' /tmp went to the system disk.
+- name: Mount /scratch through systemd
+  ansible.builtin.systemd:
+    name: scratch.mount
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and scratch_fstab is changed)
+  notify: Restart Slurm daemons     # slurmd measures its temporary space when it starts
 
 - name: /scratch belongs to root; jobs get their own folders inside
   ansible.builtin.file:

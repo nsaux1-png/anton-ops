@@ -132,6 +132,25 @@ class PreviewSeesEveryCommand(unittest.TestCase):
                        for k, v in t.items() if isinstance(v, dict) and any("{{" in str(name) for name in v)]
                 self.assertEqual(bad, [])
 
+    def test_mounts_go_through_the_host(self):
+        """ansible.posix.mount with state mounted, unmounted, remounted or absent mounts in whatever namespace
+        Ansible runs in. Over SSH that's sshd's own (ProtectProc, SOP-142), so the mount never reached the host
+        or slurmd (/scratch on douglas1, 2026-10-21). Write fstab (state: present) and start the systemd mount
+        unit; a shell mount or umount runs under nsenter -t 1 -m."""
+        for path in role_files("tasks") + role_files("handlers"):
+            with self.subTest(file=os.path.relpath(path, REPO)):
+                bad = []
+                for t in flatten(load(path)):
+                    for key in ("ansible.posix.mount", "mount"):
+                        if isinstance(t.get(key), dict) and t[key].get("state", "mounted") != "present":
+                            bad.append(t.get("name"))
+                    for key in COMMANDS:
+                        cmd = t.get(key)
+                        cmd = cmd.get("cmd", "") if isinstance(cmd, dict) else str(cmd or "")
+                        if re.search(r"\bu?mount\b", cmd) and "nsenter -t 1 -m" not in cmd:
+                            bad.append(t.get("name"))
+                self.assertEqual(bad, [])
+
     def test_the_check_catches_a_blind_task(self):
         tasks = [
             {"name": "check", "ansible.builtin.command": "probe", "register": "probe",

@@ -4,10 +4,20 @@
     name: nfs-utils
     state: present
 
-- name: Mount /cluster
+- name: /cluster in fstab
   ansible.posix.mount:
     path: /cluster
     src: "{{ storage_server }}:/raiddrive/cluster"
     fstype: nfs4
     opts: rw,hard,noatime,vers=4.2,_netdev
-    state: mounted
+    state: present
+  register: cluster_nfs
+
+# systemd mounts it on the host itself, so slurmd and every job see it. Mounting it from Ansible's own SSH
+# session would leave it inside sshd's mount namespace (ProtectProc), invisible to the rest (2026-10-21).
+- name: Mount /cluster through systemd
+  ansible.builtin.systemd:
+    name: cluster.mount
+    state: started
+    daemon_reload: true
+  when: not (ansible_check_mode and cluster_nfs is changed)
