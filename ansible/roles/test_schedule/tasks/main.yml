@@ -18,7 +18,9 @@
         Type=oneshot
         User={{ test_runner }}
         WorkingDirectory={{ test_repo }}
-        ExecStart={{ test_repo }}/cluster test
+        # Through the system Python: SELinux won't let systemd execute a file in a home folder
+        # (user_home_t), so starting the script itself failed with "Permission denied" (2026-10-22).
+        ExecStart=/usr/bin/python3 {{ test_repo }}/cluster test
     - name: cluster-tests-weekly.timer
       content: |
         # Managed by Ansible (ansible/roles/test_schedule), SOP-191.
