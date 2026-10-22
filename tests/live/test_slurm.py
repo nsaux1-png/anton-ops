@@ -11,7 +11,7 @@ import unittest
 
 import yaml
 
-from helpers import REPO, head, run
+from helpers import REPO, head, run, wait_until
 
 HEAD = head()
 with open(os.path.join(REPO, "config", "customers.yml")) as f:
@@ -189,8 +189,11 @@ class JobRules(unittest.TestCase):
         job, out = submit(A2, "--gpus=2")
         try:
             if job:
-                reason = run(HEAD, f"squeue -h -j {job} -o %r").stdout.strip()
-                self.assertRegex(reason, r"Assoc.*(GRES|TRES|Limit)", out)
+                # Right after submitting, the reason is "None" until the scheduler has looked at the job.
+                reason = wait_until(lambda: (lambda r: r if r and r != "None" else None)(
+                    run(HEAD, f"squeue -h -j {job} -o %r").stdout.strip()), seconds=60)
+                self.assertRegex(reason or "", r"Assoc.*(GRES|TRES|Limit)", out)
+                self.assertEqual(run(HEAD, f"squeue -h -j {job} -o %T").stdout.strip(), "PENDING")
         finally:
             cancel(job)
 
