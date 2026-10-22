@@ -16,6 +16,9 @@
 - the Slurm controller answers, and no node is down, drained or failing
 - anton's time is in sync
 - on each reachable compute node: sshd, chronyd, the customer network limits, munge and slurmd
+- the shared software is all built and published (`cluster-software check`, SOP-144)
+- on each login node: the customers' network rules are loaded (SOP-145)
+- on each node with a scratch disk: `/scratch` is mounted **as the host sees it** (PID 1's mount namespace; an SSH session has its own, SOP-132), and under 85% full
 - on each GPU node:
   - nvidia-persistenced
   - every GPU it should have is there (`nvidia-smi -L` against `gpu_count`)
@@ -28,4 +31,4 @@
 
 ## History
 - 2026-10-20: first version. Its first run correctly flagged douglas1 (down) and the backup timers (just reinstalled, not run yet).
-- 2026-10-21: munge and slurmd on compute nodes; GPU count and GPU/PCIe errors on GPU nodes.
+- 2026-10-21: munge and slurmd on compute nodes; GPU count and GPU/PCIe errors on GPU nodes; scratch as the host sees it; the shared software; the login node's rules.

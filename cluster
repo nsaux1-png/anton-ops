@@ -281,6 +281,10 @@ def cmd_health(args, log):
     add(head, "Slurm controller", ("is UP" in ping, ping.strip().splitlines()[0] if ping.strip() else "no answer"))
     nodes = [line for line in helpers.run(head, "sinfo -h -N -o '%N %T'").stdout.splitlines() if line.strip()]
     add(head, "Slurm nodes", health.nodes_ok(nodes))
+    software = helpers.run(head, "sudo /usr/local/sbin/cluster-software check")
+    add(head, "shared software", (software.returncode == 0, software.stdout.strip().splitlines()[-1] if software.stdout.strip() else "no answer"))
+    for login in helpers.hosts("login_nodes"):
+        services(login, health.LOGIN_SERVICES)
     leap = helpers.run(head, "chronyc -n tracking | grep 'Leap status'").stdout.split(":")[-1].strip()
     add(head, "time", (leap == "Normal", f"leap status {leap or 'unknown'}"))
     for node in helpers.hosts("compute"):
@@ -288,6 +292,14 @@ def cmd_health(args, log):
             continue
         gpu_node = node in helpers.hosts("gpu_nodes")
         services(node, health.NODE_SERVICES + (health.GPU_NODE_SERVICES if gpu_node else []))
+        try:
+            device = helpers.run(node, f"readlink -f {helpers.var(node, 'scratch_device')}").stdout.strip()
+        except KeyError:
+            device = None
+        if device:
+            host_view = helpers.run(node, "sudo nsenter -t 1 -m findmnt -n -o SOURCE /scratch").stdout
+            add(node, "scratch on the host", health.mount_ok(host_view, device))
+            add(node, "disk /scratch", health.disk_ok(helpers.run(node, "df --output=pcent,target /scratch | tail -1").stdout))
         if gpu_node:
             add(node, "GPUs", health.gpus_ok(helpers.run(node, "nvidia-smi -L").stdout, helpers.var(node, "gpu_count")))
             kernel_log = helpers.run(node, "journalctl -k -b -q --no-pager").stdout

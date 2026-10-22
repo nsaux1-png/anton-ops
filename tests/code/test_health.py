@@ -62,6 +62,13 @@ class Checks(unittest.TestCase):
                 self.assertFalse(ok)
                 self.assertIn("1 line(s)", detail)
 
+    def test_mounts_as_the_host_sees_them(self):
+        self.assertEqual(h.mount_ok("/dev/nvme1n1\n", "/dev/nvme1n1"), (True, "/dev/nvme1n1"))
+        self.assertEqual(h.mount_ok("", "/dev/nvme1n1"), (False, "not mounted on the host"))
+        ok, detail = h.mount_ok("/dev/mapper/root", "/dev/nvme1n1")
+        self.assertFalse(ok)
+        self.assertIn("expected /dev/nvme1n1", detail)
+
     def test_summary(self):
         lines, ok = h.summary([("anton", "slurmctld", True, "active"), ("douglas1", "reachable", False, "no route")])
         self.assertFalse(ok)

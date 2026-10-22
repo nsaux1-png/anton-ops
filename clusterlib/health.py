@@ -9,6 +9,7 @@ import re
 
 HEAD_SERVICES = ["sshd", "firewalld", "chronyd", "munge", "mariadb", "slurmdbd", "slurmctld", "nfs-server", "squid"]
 NODE_SERVICES = ["sshd", "chronyd", "cluster-egress", "munge", "slurmd"]
+LOGIN_SERVICES = ["cluster-login-egress"]
 GPU_NODE_SERVICES = ["nvidia-persistenced"]
 TIMERS = {"cluster-billing-hourly": 2, "cluster-backup-binlogs": 2, "cluster-backup-nightly": 26,
           "cluster-tests-weekly": 24 * 8}       # how many hours since its last run before it's a problem
@@ -72,6 +73,15 @@ def gpu_errors_ok(kernel_log):
     if not problems:
         return True, "none since boot"
     return False, f"{len(problems)} line(s) since boot, the first: {problems[0].strip()[:120]}"
+
+
+def mount_ok(host_view, device):
+    """`findmnt -n -o SOURCE <path>` as the host sees it (PID 1's mount namespace, not an SSH session's,
+    which has its own: SOP-132), against the device that should be there."""
+    found = host_view.strip()
+    if not found:
+        return False, "not mounted on the host"
+    return found == device, (found if found == device else f"{found}, expected {device}")
 
 
 def summary(results):
