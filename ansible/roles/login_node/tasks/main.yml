@@ -11,7 +11,7 @@
     mode: "0755"
   loop: "{{ accounts.users }}"
   loop_control:
-    label: "{{ item.username }}"
+    label: "{{ item.name }}"
 
 - name: Each customer user's limits on the login node
   ansible.builtin.template:
@@ -22,7 +22,7 @@
     mode: "0644"
   loop: "{{ accounts.users }}"
   loop_control:
-    label: "{{ item.username }}"
+    label: "{{ item.name }}"
   notify: Reload systemd
 
 - name: Network rules for customer accounts on the login node
