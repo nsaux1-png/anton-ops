@@ -49,3 +49,11 @@ customers:
         name: Test user 3
         email: test-zz03@localhost
         ssh_key_file: /etc/cluster/test-keys/zz03.pub
+
+  c0003:
+    name: "Test customer 3"
+    test: true
+    billing_email: "test-c0003@localhost"
+    storage_gb: 25
+    max_gpus: 2
+    users: {}
