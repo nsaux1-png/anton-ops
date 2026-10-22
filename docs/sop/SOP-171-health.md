@@ -15,12 +15,17 @@
 - the newest backup is under 26 h old
 - the Slurm controller answers, and no node is down, drained or failing
 - anton's time is in sync
-- on each reachable compute node: sshd, chronyd, the customer network limits, and (GPU nodes) nvidia-persistenced
+- on each reachable compute node: sshd, chronyd, the customer network limits, munge and slurmd
+- on each GPU node:
+  - nvidia-persistenced
+  - every GPU it should have is there (`nvidia-smi -L` against `gpu_count`)
+  - no NVIDIA Xid errors, no GPU "fallen off the bus", and no PCIe hardware errors in the kernel log since boot. Even corrected PCIe errors count: on 2026-10-20 they pointed at a badly seated GPU.
 
 `--json` gives the same as data, for scripts and agents. Every run is logged.
 
 ## Checks
-- **Code tests:** `./cluster test --code -k health` (RAID, disk, backup age, timers, node states, the summary).
+- **Code tests:** `./cluster test --code -k health` (RAID, disk, backup age, timers, node states, GPU count, GPU and PCIe errors, the summary).
 
 ## History
 - 2026-10-20: first version. Its first run correctly flagged douglas1 (down) and the backup timers (just reinstalled, not run yet).
+- 2026-10-21: munge and slurmd on compute nodes; GPU count and GPU/PCIe errors on GPU nodes.

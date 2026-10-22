@@ -108,3 +108,21 @@ douglas1 is back (ops log [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md
   - finished jobs are recorded with their GPUs and billing units
   - admins log in without a job; a customer without a job is refused; a customer with a job gets in, lands inside the job, and causes no SELinux denials
   - the SELinux module is loaded
+
+## 5. Billing with real jobs (SOP-161)
+- New live tests, `tests/live/test_billing_jobs.py`:
+  - exact charges, against a calculation from `rates.yml` made independently of the billing code
+  - running jobs charged every hour and finally once
+  - the monthly cross-check
+  - running out of credit mid-job: the 10-minute grace, the job's `USR1` warning, new jobs waiting, no kill over the limit, the stop at the new limit, and the grace being charged
+- **The first run found that hourly billing had failed on every real job:** `cluster-billing: job record 15106908804199296000 isn't tracked`, exit 2.
+  - **Cause:** Slurm 26.05's job record IDs (`sacct -D` `DBIndex`) are above 2^63. The ledger's `job_charges.db_index` was a signed `BIGINT`. `INSERT IGNORE` let MariaDB clamp the value to 2^63−1 instead of refusing it, so the record couldn't be found to charge.
+  - **What it affected:** one clamped tracking row (job 22, nothing charged). The ledger had no charge entries at all, so no money was recorded wrongly. The hourly timer had been failing since the first real job, about 18:00; `./cluster health` would have flagged it after the next timer run.
+  - **Fix:**
+    - `db_index BIGINT UNSIGNED`
+    - schema version 2, with a migration that changes the column and drops clamped rows holding no money (it stops for a person if one holds any)
+    - strict SQL mode, and `INSERT ... ON DUPLICATE KEY` instead of `INSERT IGNORE` (also for storage readings)
+  - **New ledger database tests** (21 in all): a 26.05 ID kept exactly and charged, two big IDs stay two jobs, a too-big ID refused rather than clamped, and both migration paths.
+  - **Applied to anton** (`20261021-184326-apply.log`): the real ledger is migrated (column unsigned, version 2, the clamped row gone). Hourly billing then charged every one of today's test jobs.
+  - `cluster-billing check 2026-10`: 27 finished jobs checked, the ledger agrees with Slurm.
+- `./cluster health` now also checks munge and slurmd on compute nodes, and on GPU nodes that every GPU is there with no Xid, fallen-off-the-bus or PCIe hardware errors since boot (SOP-171).
