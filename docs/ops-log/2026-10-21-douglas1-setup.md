@@ -278,3 +278,20 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
   - Fixed: the limit is compared with the balance after the run, and the price comes from `rates.yml` instead of the placeholder 0.50.
 - **Second run under systemd** (`20261022-011522-test.log`): **133 of 133 code tests, 200 of 200 live tests.** Result=success, so `./cluster health` shows the weekly timer green.
 - Guide: Hugging Face caches in the project folder, and `HF_HUB_OFFLINE=1` in jobs. Published.
+
+## 14. 10 GPUs on douglas1, so 5 cores + 24 GB per GPU (2026-10-22)
+- The user: douglas1 stays at 10 GPUs, with no 11th. The share had been sized for 11 (5 cores + 20 GB), which left about 50 GB of RAM unused. Raised to **24 GB per GPU** ("yea raise to 24gb"). That's 1.5× each 16 GB GPU; the machine is 256 GB against 160 GB of GPU memory, 1.6×.
+- **Caught before it shipped: billing.** The partition's fixed `TRESBillingWeights="CPU=1,Mem=0.5G,GRES/gpu=10"` with `MAX_TRES` would have billed 24 GB as 12 units against the GPU's 10, so every standard job would have cost 20% more than the GPU price.
+  - The weights are now computed from the share in `slurm.conf.j2`: `CPU=1,Mem=0.416666G,GRES/gpu=10`. The memory weight is rounded down, so a full share's memory (9.99998 units) never bills above its GPU; Slurm truncates the billing number.
+- **Changed:**
+  - `slurm_mem_per_gpu_mb` 24576 and `slurm_billing_units_per_gpu` 10 (`slurm_common` defaults)
+  - `gpu_slots` 10, so `MemSpecLimit` leaves the system 11,240 MB
+  - `job_submit.lua` and `DefMemPerGPU` follow the setting
+  - the welcome message, the guide, the design (Q4 changed), the decisions log, SOP-152/153/155, the status page and the `rates.yml` comment
+- **New tests:**
+  - Slurm's weights make a full share of CPUs, memory or a GPU the same units, never more (live)
+  - `rates.yml` and Slurm agree on units per GPU (code)
+  - the welcome message states the real share
+  - the out-of-memory test goes 1 GB over the share
+- **Applied** (`20261022-045153-apply.log`): "Done and settled", node idle, no drain. Slurm shows `DefMemPerGPU=24576`, the new weights, and `MemSpecLimit=11240`.
+- **Tests:** code 134/134; live `test_slurm` 42/42, `test_slurm_node` 17/17 (a job's cgroup holds 24 GB; a standard job bills 10 units), `test_new_user` 17/17, `test_user_environment` 12/12, `test_billing_jobs` 4/4.
