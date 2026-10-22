@@ -3,33 +3,35 @@
 **Owner** says who does it: **you** = a person at a terminal or in a web UI; **Claude** = can be done from Claude Code once access is in place.
 Tick items off here and commit, so the history shows when each was done.
 
-## Next up (2026-10-19): NVIDIA driver on douglas1
-The full step-by-step plan is [`build-plan.md`](build-plan.md).
-- [x] **Claude:** Ansible + `./cluster` with run logging (2026-10-19, SOP-001, SOP-101). `/etc/hosts` managed too (SOP-102).
-- [x] **Claude:** Admin web proxy on anton, and network limits for customer accounts on douglas1 (2026-10-19, SOP-103, SOP-104).
-- [ ] Package mirror: moved to build plan phase 3, before the second node or the first customer.
-- [ ] **Claude:** Read-only checks on douglas1: Secure Boot, BIOS (Above 4G decoding, Resizable BAR), kernel headers.
-- [x] **Claude:** douglas1's memory sticks: 8× 32 GB DDR4-2133, all 8 slots full (2026-10-19). Upgrade in Linear COP-43.
-- [ ] **Claude:** SOP + Ansible role for the NVIDIA driver; install on douglas1; `nvidia-smi` shows all 10 GPUs; persistence mode on.
-- [ ] **Claude + you:** Full-load test of all 10 GPUs (D47), watching temperatures and power.
+## Before the first real customer (2026-10-22)
+The cluster is ready for test customers end to end. These are what's left before real ones:
+- [ ] **you:** How customers reach the login node from outside: a public address or port forward to anton, or another way. Then put the login address in `docs/user-guide.md`.
+- [ ] **you:** Your SSH login to anton: key or password (build plan 1.6)? Password logins must be off before anton is reachable from the internet.
+- [ ] **you:** Real prices (D29), what 1 credit is worth (D40), the terms (11.2), and a support contact for the guide.
+- [ ] **you:** Where alerts go (D34). `./cluster health` checks everything, but doesn't tell anyone yet. The same decision covers Slurm's job emails: no mail program yet, so slurmctld logs `Configured MailProg is invalid`.
+- [ ] **you:** Where off-site backups go (D39).
+- [ ] **you + Albert:** The one-hour full-load test of all 10 GPUs (D47). Someone must be near the machine (heat, power).
+- [ ] **you:** Q8, a separate login machine. Today customers log in to anton, which is also the head node. The login-node limits and rules (SOP-145) make that safer, not safe.
+- [ ] **Claude:** Rebuild Slurm with `libyaml-devel` and `json-c-devel`, for `--json`/`--yaml` output (SOP-151). Not needed for customers.
+- [ ] **Claude, with you around:** The package mirror on anton (build plan 3.1): tens of GB over the office network, before a second node or the first customer.
 
-## When douglas1 is back (it hung at boot after the NVIDIA driver install, 2026-10-19)
+## douglas1 (2026-10-19 hang, back 2026-10-20)
 - [ ] **Albert:** douglas1's BMC port onto the cluster switch, a fixed address from anton, and its login recorded, so its console and power button can be reached remotely (Linear COP-44, 2026-10-20; Albert's opinion asked there). anton's own BMC is probably already on that switch, asking for an address.
-- [x] **you:** Someone at douglas1's console got it running on 2026-10-20 (up since 16:17).
-- [x] **Claude:** Read douglas1's logs (2026-10-21, ops log 2026-10-21-douglas1-back). The driver loads fine; the 10-19 reboot stopped before any boot started, probably hardware around GPU `0000:01:00.0`. The failed restart left no log.
 - [ ] **Albert / you (COP-44):** if the BMCs get cluster-network addresses, customers' jobs on the compute nodes could reach them, since the compute nodes' customer rules allow the whole cluster network (SOP-104). Either give the BMCs their own network, or Claude adds their addresses to the compute nodes' customer block list. The login node already blocks them (SOP-145).
-- [ ] **you:** Who was at the console on 10-20, and what did they see and change (screen messages, GPU `0000:01:00.0` reseated, BIOS settings)?
-- [x] **Claude:** A persistent journal on every machine (2026-10-21, SOP-106), so a failed boot leaves a log.
-- [x] **Claude:** douglas1's kernel options into Ansible (2026-10-21, SOP-107), so they're recorded and checked.
-- [ ] **Claude:** Drop `initcall_debug` (move it to `kernel_args_remove`) at the next planned reboot.
-- [ ] **Claude:** A supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry), only after COP-44.
-- [ ] **Claude:** `slurmd -C`: set `slurm_real_memory_mb` in `config/nodes.yml`, and the GPU type (`slurm_gpu_type`) from what NVML reports.
-- [x] **Claude:** A full `./cluster apply` on douglas1: accounts, logins, `/cluster` over NFS (2026-10-21). Live suite 116/116, 1 skipped. Slurm packages come with `slurm_node`.
-- [x] **Claude:** Wire in `slurm_node` (2026-10-21, SOP-155): slurmd, NVML, `pam_slurm_adopt` (substack + SELinux module), hidden job processes. Logins tested with and without a job, as admin and as a test user. 16/16.
-- [ ] **Claude:** SOP-155 proof run: undo on douglas1, rebuild with one apply, tests again.
-- [ ] **Claude + you:** Slurm can't send job emails: no mail program on anton (`Configured MailProg is invalid` in slurmctld's log). Decide with D34 (alerts).
-- [ ] **Claude:** GPU job tests, the skipped per-user GPU limit test, real-job charging, running out of credit → grace → stop, and the GPU check program on every GPU.
-- [ ] **you + Claude:** The one-hour full-load test (D47).
+- [ ] **you:** What Albert saw and changed at the console on 10-20: screen messages, GPU `0000:01:00.0` reseated, the 4 TB NVMe fitted, BIOS settings?
+- [ ] **Claude:** After COP-44: a supervised reboot test, the self-recovering way (hardware watchdog `sp5100_tco` plus a one-time GRUB entry). Then drop `initcall_debug` (move it to `kernel_args_remove`), and the driver's proof runs (SOP-111).
+- [x] **you:** Someone at douglas1's console got it running on 2026-10-20 (up since 16:17).
+- [x] **Claude:** douglas1's logs read (2026-10-21): the driver loads fine; the 10-19 reboot stopped before any boot started, probably hardware around GPU `0000:01:00.0`.
+- [x] **Claude, 2026-10-21:**
+  - persistent journal (SOP-106) and kernel options (SOP-107)
+  - accounts, logins, `/cluster` on douglas1
+  - Slurm on douglas1 (SOP-155: `pam_slurm_adopt` with a substack and an SELinux module)
+  - `slurmd -C` figures in `nodes.yml`
+  - GPU jobs, real-job charging and the grace period, tested live
+  - job scratch on the new NVMe (SOP-132)
+  - what customers get (SOP-143), shared software (SOP-144), the login node (SOP-145)
+  - onboarding proved live (SOP-210)
+  - a new customer's first day tested (17 tests)
 
 ## 1. Finish renaming anton (remove every "douglas1" that refers to this machine)
 - [x] Hostname → `anton` (2026-10-17)
