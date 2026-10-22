@@ -3,7 +3,7 @@
 
 ## Purpose
 - **Each GPU node's own NVMe is its scratch disk.** douglas1 has a 4 TB one, fitted on 2026-10-20 (plan D5). It's formatted once (XFS) and mounted at `/scratch`.
-- **Every job gets a private `/tmp` there, and its own fresh `/dev/shm`**, via Slurm's `namespace/linux` plugin (`/etc/slurm/namespace.yaml`). Both are deleted when the job ends.
+- **Every job gets a private `/tmp` there, and its own fresh `/dev/shm`**, via Slurm's `namespace/tmpfs` plugin (`/etc/slurm/job_container.conf`). Both are deleted when the job ends.
 - This means:
   - jobs never fill the node's 70 GB system disk
   - one customer's job can't see another's temporary files, even on the same node at the same time
@@ -13,14 +13,14 @@
 
 **The pieces:**
 - Role `ansible/roles/scratch`: the disk and the mount. The disk is named by its stable `/dev/disk/by-id/…` name in `config/nodes.yml` (`scratch_device`). It's never reformatted: a disk that already has a filesystem is left as it is.
-- `namespace.yaml`, in role `slurm_node`.
+- `job_container.conf`, in role `slurm_node`.
 - The plugin lines, in `slurm.conf` (role `slurm_common`).
 
 The mount has `nofail` and a 30-second device timeout, so a dead scratch disk can never stop the node from booting.
 
 ## When
 - A new GPU node, with its NVMe fitted.
-- **`namespace.yaml` changes only with the node idle.** Changing it while jobs run can disturb them (namespace.yaml(5)). Drain first (`sudo scontrol update nodename=<node> state=drain reason="namespace change"`), wait for jobs to end, apply, then resume.
+- **`job_container.conf` changes only with the node idle.** Changing it while jobs run can disturb them (job_container.conf(5)). Drain first (`sudo scontrol update nodename=<node> state=drain reason="namespace change"`), wait for jobs to end, apply, then resume.
 
 ## Before you start
 - The disk is the right one, and empty: `ls -l /dev/disk/by-id/ | grep <serial>`, then `sudo wipefs -n <device>` prints nothing.
@@ -42,9 +42,9 @@ The mount has `nofail` and a 30-second device timeout, so a dead scratch disk ca
 
 ## Undo
 1. Drain the node and wait for its jobs to end.
-2. Remove `NamespaceType` and `TmpFS` from `slurm.conf.j2`, and the `namespace.yaml` task from `slurm_node`. Apply, which restarts slurmd.
+2. Remove `NamespaceType` and `TmpFS` from `slurm.conf.j2`, and the `job_container.conf` task from `slurm_node`. Apply, which restarts slurmd.
 3. `sudo umount /scratch`, and remove its line from `/etc/fstab`. The data on the disk stays.
 4. Remove the role from `ansible/site.yml`.
 
 ## History
-- 2026-10-21: first version.
+- 2026-10-21: first version. It first used `namespace/linux`, whose `namespace.yaml` needs Slurm's YAML serializer. Our build has none (no `libyaml-devel` at build time), so slurmd stopped: "could not find plugin for application/x-yaml". Switched to `namespace/tmpfs`, which reads a plain `job_container.conf`.

@@ -82,6 +82,7 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Claude:** `./cluster billing-report <month>`, giving usage per account as CSV.
 
 ## 8. Before onboarding customers
+- [ ] **Claude:** Rebuild Slurm with `libyaml-devel` and `json-c-devel`, so it has its YAML and JSON serializers. That gives `--json`/`--yaml` output for scripts and users, and allows `namespace/linux`. Today only `serializer/url_encoded` is built (found 2026-10-21, SOP-151, SOP-132).
 - [ ] **you:** Q10 (`slurm-design.md`): customers install their own software; we add only the base packages and Apptainer?
 - [ ] **Claude:** Customers install their own software, with live tests (requirement 16):
   - as a test user on the login node: a venv plus `pip install`, then importing it inside a GPU job on douglas1, which has no internet
