@@ -265,3 +265,11 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
   - code tests: **133 of 133**
   - live tests: **197 of 198**. The one failure was the old per-user GPU-limit test in `test_slurm.py`, running for the first time with a GPU node up. It read Slurm's initial "None" reason, the same race as the grace test. Fixed, and it passes.
 - `docs/status.md` (where things stand) and the to-do's "Before the first real customer" list written for the user.
+
+## 13. The weekly test run had never worked (SOP-191)
+- I started `cluster-tests-weekly.service` by hand, to see the suite run under systemd rather than in my session. It failed at once: `Failed to locate executable /home/papaya/cluster/cluster: Permission denied` (status 203/EXEC).
+  - The audit log: `avc: denied { execute } … scontext=init_t tcontext=user_home_t`. SELinux won't let systemd execute a file in a home folder.
+  - The timer was installed on 2026-10-20 and hadn't fired yet, so the first Sunday run would have failed silently. `./cluster health` would have shown it, but no alerts exist yet.
+- **Fix:** `ExecStart=/usr/bin/python3 <repo>/cluster test`. Python is a system program, which systemd may run, and it reads the script. Applied (`20261022-004918-apply.log`).
+- New live test `tests/live/test_schedule.py`: every cluster timer is enabled with a next run, and each service starts a program systemd may execute (not `user_home_t`). It failed on the old unit and passes on the new one.
+- Then started the weekly run under systemd for real; its result is below.
