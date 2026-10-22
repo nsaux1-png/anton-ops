@@ -1,5 +1,5 @@
 # SOP-143: What customers get: packages, Python, containers, modules, temporary files
-**Status:** draft 2026-10-21
+**Status:** proved 2026-10-21 ([ops log](../ops-log/2026-10-21-douglas1-setup.md))
 
 ## Purpose
 Customers install their own software (requirement 16): pip and venvs, conda, containers. This SOP covers what only root can provide, the same on the login node and every compute node, so whatever builds on the login node runs in a job:
@@ -40,4 +40,4 @@ Automatically on every `./cluster apply`. To add a package: put it in the list, 
 Remove the role from `ansible/site.yml`, and delete `/etc/profile.d/cluster-user.sh`, `/etc/motd.d/cluster-welcome` and `/cluster/docs`. Remove packages only if nothing needs them.
 
 ## History
-- 2026-10-21: first version.
+- 2026-10-21: first version, applied to anton and douglas1; 12 live tests. Proof run: settings undone on both and two packages removed; the tests failed; one apply (`--tags user_environment`) fixed it.

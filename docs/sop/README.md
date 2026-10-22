@@ -24,7 +24,7 @@ Every build step and routine task on the cluster is an SOP: a page here, plus a 
 | [SOP-130](SOP-130-shared-storage.md) | Shared storage: quotas, `/cluster`, NFS | proved on anton 2026-10-20; douglas1 2026-10-21 |
 | [SOP-141](SOP-141-customer-accounts.md) | Customer accounts, folders and storage limits | proved on anton 2026-10-20; douglas1 2026-10-21 |
 | [SOP-142](SOP-142-customer-logins.md) | How customers log in | proved on anton 2026-10-20; douglas1 2026-10-21 |
-| [SOP-143](SOP-143-user-environment.md) | What customers get: packages, Python, containers, modules, temporary files | draft 2026-10-21 |
+| [SOP-143](SOP-143-user-environment.md) | What customers get: packages, Python, containers, modules, temporary files | proved 2026-10-21 |
 | [SOP-144](SOP-144-shared-software.md) | Shared software (`/cluster/software`) | draft 2026-10-21 |
 | [SOP-151](SOP-151-build-slurm.md) | Build Slurm | proved 2026-10-20 |
 | [SOP-152](SOP-152-slurm-controller.md) | Slurm controller, database and shared configuration | proved on anton 2026-10-20 |

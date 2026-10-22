@@ -141,3 +141,15 @@ douglas1 is back (ops log [2026-10-21-douglas1-back](2026-10-21-douglas1-back.md
 7. User guide, SOPs, code index, then a full test run.
 
 Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the one-hour full-load GPU test (someone near the machine), SSH lockdown (1.6), alerts (D34), off-site backups (D39).
+
+## 7. What customers get (SOP-143, new)
+- New role `user_environment` (every machine, tag `user_environment`; the login-node parts on the new `login_nodes` group, which is anton).
+  - 56 packages: compilers and build tools, git and git-lfs, Python 3.12 with headers, common libraries, everyday tools, Apptainer with squashfuse, and environment-modules. All 56 names checked against the repositories first.
+  - Unprivileged containers work as they are: user namespaces are on (126,812 allowed), and `/dev/fuse` is open to users.
+- Applied to both machines (`20261021-210858-apply.log`, 805 s, mostly package installs): "Done and settled".
+- **Also in this step: Slurm's task prolog sets `TMPDIR=/tmp` in jobs.** On the login node, a customer's `TMPDIR` is their own `~/.tmp`, and `sbatch` passes the login session's environment on to the job, so without this a job would write its temporary files into the home folder over NFS.
+- `tests/live/test_user_environment.py`: 12 of 12 on the first run.
+- **Proof run** (`--tags user_environment`):
+  1. Undid the settings on both machines: profile script, welcome message, module path and Apptainer bind. Also removed two harmless packages, `tree` and `screen`. I left compilers alone, since the NVIDIA driver's DKMS rebuilds need them.
+  2. The tests failed, 9 failures, as expected.
+  3. One apply (`20261021-213607-apply.log`) fixed everything. 12 of 12 again.
