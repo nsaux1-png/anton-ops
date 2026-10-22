@@ -17,6 +17,7 @@ The full step-by-step plan is [`build-plan.md`](build-plan.md).
 - [ ] **Albert:** douglas1's BMC port onto the cluster switch, a fixed address from anton, and its login recorded, so its console and power button can be reached remotely (Linear COP-44, 2026-10-20; Albert's opinion asked there). anton's own BMC is probably already on that switch, asking for an address.
 - [x] **you:** Someone at douglas1's console got it running on 2026-10-20 (up since 16:17).
 - [x] **Claude:** Read douglas1's logs (2026-10-21, ops log 2026-10-21-douglas1-back). The driver loads fine; the 10-19 reboot stopped before any boot started, probably hardware around GPU `0000:01:00.0`. The failed restart left no log.
+- [ ] **Albert / you (COP-44):** if the BMCs get cluster-network addresses, customers' jobs on the compute nodes could reach them, since the compute nodes' customer rules allow the whole cluster network (SOP-104). Either give the BMCs their own network, or Claude adds their addresses to the compute nodes' customer block list. The login node already blocks them (SOP-145).
 - [ ] **you:** Who was at the console on 10-20, and what did they see and change (screen messages, GPU `0000:01:00.0` reseated, BIOS settings)?
 - [x] **Claude:** A persistent journal on every machine (2026-10-21, SOP-106), so a failed boot leaves a log.
 - [x] **Claude:** douglas1's kernel options into Ansible (2026-10-21, SOP-107), so they're recorded and checked.

@@ -1,5 +1,5 @@
 # SOP-145: The login node for customers: limits and network
-**Status:** draft 2026-10-21
+**Status:** proved 2026-10-21 ([ops log](../ops-log/2026-10-21-douglas1-setup.md))
 
 ## Purpose
 Customers log in to the login node (the `login_nodes` group: anton until a separate machine exists, Q8) to install software, edit and submit jobs. The work itself runs in jobs. anton is also the head node: the billing database, the Slurm controller and every admin tool, on 31 GB of RAM. So:
@@ -45,4 +45,4 @@ Automatically on every `./cluster apply`. A new customer user gets their limits 
 `sudo systemctl disable --now cluster-login-egress`, and `sudo rm -r /etc/systemd/system/user-*.slice.d/50-cluster-login.conf && sudo systemctl daemon-reload`. Then remove the role from `ansible/site.yml`.
 
 ## History
-- 2026-10-21: first version.
+- 2026-10-21: first version; 14 live tests. Proof run: rules and limits removed; the tests failed, after two were made to check the rules' own counters (a port nobody listens on fails anyway); one apply restored them.

@@ -205,3 +205,21 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
   1. Unmounted `/scratch` on the host and removed its `fstab` line and `job_container.conf`. Three tests failed.
   2. That also exposed a weak test: "on the scratch disk" compared `/tmp` with `/scratch`, which are the same disk when it's unmounted. It now compares with the device itself, and failed as it should.
   3. One apply (`20261021-225233-apply.log`) restored everything. 7 of 7 again.
+
+## 10. The login node for customers (SOP-145, new)
+- New role `login_node` (the `login_nodes` group, which is anton).
+  - **Limits for each customer user:** 4 cores, 6 GB, no swap, 512 processes, as a systemd slice drop-in for their UID. anton is also the head node, with 31 GB of RAM for the billing database and the Slurm controller.
+  - **Network rules for customer UIDs** (nftables `cluster_login_egress`, loaded at boot):
+    - allowed: the internet, SSH and slurmd on the compute nodes, Slurm here, and answers on their own connections (`srun`'s output from the nodes needs that)
+    - blocked: the office network, every other private range and link-local, the rest of the cluster network, and this machine's admin services (proxy, MariaDB, Cockpit, NFS, mail)
+  - SSH tunnels run as the customer, so the rules cover them too.
+- The first preview failed safely: in the account data the username field is `name`, not `username`. Fixed.
+- Applied (`20261021-230720-apply.log`). **`test_login_node`: 14 of 14**, including:
+  - tunnels refused to the office network and to MariaDB
+  - the guide's Jupyter recipe (`ssh -J` into your own job's node) landing inside the job
+  - a 7 GB program in a customer's session stopped with exit 137
+- **Proof run:**
+  1. Disabled the rules and removed the slice drop-ins. 14 failures, but two tests still passed: "office network" and "private ranges". Nothing listens on those ports anyway, so failing to connect proves nothing.
+  2. Those tests now require the rules' own reject counters to go up. With the rules gone they failed, as they should.
+  3. One apply (`20261021-231401-apply.log`) restored everything. 14 of 14.
+- **Found for COP-44:** the compute nodes' customer rules allow the whole cluster network. If douglas1's BMC gets a cluster-network address, customers' jobs could reach its login page. Added to the to-do: block BMC addresses for customers on the compute nodes, or give the BMCs a network of their own (Albert's call in COP-44). The login node's rules already block them.
