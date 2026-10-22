@@ -223,3 +223,20 @@ Not without the user: reboots (no BMC yet), the package mirror (tens of GB), the
   2. Those tests now require the rules' own reject counters to go up. With the rules gone they failed, as they should.
   3. One apply (`20261021-231401-apply.log`) restored everything. 14 of 14.
 - **Found for COP-44:** the compute nodes' customer rules allow the whole cluster network. If douglas1's BMC gets a cluster-network address, customers' jobs could reach its login page. Added to the to-do: block BMC addresses for customers on the compute nodes, or give the BMCs a network of their own (Albert's call in COP-44). The login node's rules already block them.
+
+## 11. Onboarding proved live, and a new customer's first day (SOP-210)
+- **`customer add --test` and test users added to the commands.** A test customer takes the lowest free code (c0001–c0099). Its users take the lowest free `zzNN`, with a key the next apply generates.
+  - The sandbox the command tests run in now fakes `sudo` and has its own test-key folder (`CLUSTER_TEST_KEY_DIR`). Otherwise a sandbox test would have run a real `sudo ssh-keygen` into `/etc/cluster/test-keys`; the real keys were checked untouched. Code tests: 132.
+- **The real commands, as for a real customer:**
+  1. `./cluster customer add --test --name "Test customer 3" --billing-email test-c0003@localhost --storage-gb 25 --max-gpus 2 --yes` gave c0003: committed, IDs given out (group 20002), applied, settled (`20261021-232146-customer.log`, 830 s).
+  2. `./cluster user add c0003 --name "Test user 5" --email test-zz05@localhost --manager --yes` gave zz05: committed, uid 10104, key generated, applied, settled (`20261021-233555-user.log`, 847 s).
+  3. `./cluster credits grant c0003 50 --ref TEST-CREDIT-2026-10-21-c0003`, then the sync: limit 0 → 60,000 billing-minutes.
+- **`tests/live/test_new_user.py`: 17 of 17**, as zz05 through a real SSH login with their own key:
+  - looking around: credit, prices, storage, GPUs, modules, their folders
+  - getting things in: scp, downloading on the login node, a package on top of the shared PyTorch
+  - jobs: a guide-style training job with a checkpoint trap, with its cost showing in `myusage`; an interactive `srun --pty`; a job array; project data read in a job
+  - mistakes, each refused or stopped with its reason: no GPU, over 7 days, Windows line endings, `--mem=0`, more GPUs than the company may hold (waits with the reason), `pip install` in a job (fails fast, no internet), and over the memory limit (stopped, `OUT_OF_MEMORY`)
+  - The first run had 15 of 17. Both failures were display quirks: `sacct` cut the state to "OUT_OF_ME+", and the pty echoed a NUL as "^@".
+- A plain `#!/bin/bash` job script can use `module`, so the guide doesn't need `#!/bin/bash -l`.
+- **The customers' guide rewritten** for what exists now: copying files in, the login node's limits, each job's private `/tmp` and `--tmp`, interactive sessions and arrays, the shared software and packages on top, conda, containers, compiling, Jupyter and VS Code, internet on the login node only, and the mistakes. Compute is billed per second, which the code always did; the guide said per minute.
+  - Published at `/cluster/docs/guide.md` (`20261021-235247-apply.log`).

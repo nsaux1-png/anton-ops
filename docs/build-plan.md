@@ -19,6 +19,8 @@ Then commit and push. Status as of 2026-10-19.
 | 1.4 | **Network limits for customer jobs** on compute nodes: customer accounts (UID 2000 and up) can reach only the cluster network. That rules out the internet, the office network, the BMC and the admin proxy. Root and admin accounts aren't limited. | 104 | | ✅ done 2026-10-19 |
 | 1.5 | Time: anton serves time (chrony) to the cluster network; nodes sync from it | 105 | | ✅ done 2026-10-19 |
 | 1.6 | **SSH lockdown, moved up by the review:** password login off, no root login, then check from outside whether anton's public IPv6 address is reachable | 106 | Confirm you log in with an SSH key, not a password; run the outside check from your phone's hotspot | |
+| 1.7 | System logs kept on disk on every machine (the journal), so a failed boot leaves a record | 106 | | ✅ done 2026-10-21 |
+| 1.8 | Extra kernel options recorded in `nodes.yml` and checked (douglas1's GPU bring-up options) | 107 | | ✅ done 2026-10-21 |
 
 ## Phase 2: GPU node (douglas1)
 **Tests written in this phase:** all 10 GPUs present with the pinned driver; each GPU's PCIe link; a CUDA test program runs on every GPU; persistence mode on; the driver module built for every installed kernel; the customer network limits still loaded after a reboot.
@@ -48,6 +50,7 @@ Then commit and push. Status as of 2026-10-19.
 | 4.1 | `/raiddrive` layout (`home`, `projects`, `software`, `mirror`), with user, group and project quotas on. That needs an fstab change and a full unmount and mount, done while it's still empty. | 131 | | ✅ done on anton 2026-10-20 |
 | 4.2 | NFS: export to the cluster network only; mount on douglas1 | 132 | | ✅ done 2026-10-21 (anton exports; douglas1 mounts `/cluster` over NFS 4.2) |
 | 4.3 | Per-customer group quota (150 GB default), per-user usage, the hourly storage collector, the 90% warning; test that a file can't escape the quota | 133 | | ◐ limits done on anton 2026-10-20; hourly collector and 90% warning come with billing (phase 7) |
+| 4.4 | Job scratch: each GPU node's own NVMe at `/scratch`; every job gets a private `/tmp` and `/dev/shm`, deleted at the end (D5) | 132 | | ✅ done 2026-10-21 on douglas1 (4 TB) |
 
 ## Phase 5: Users and access
 **Tests written in this phase:** test customers and users exist on every machine with the right UIDs and groups; customers can't add SSH keys, use sudo or see other users' processes; suspended users can't log in or submit jobs; the `./cluster user` commands (code tests).
@@ -56,6 +59,9 @@ Then commit and push. Status as of 2026-10-19.
 |---|---|---|---|---|
 | 5.1 | `config/customers.yml` and `uids.yml`; `./cluster user add/suspend/remove`, `apply`; test customers `c0001`/`c0002` with `zz` users | 141, 201 | | ✅ done on anton 2026-10-20, douglas1 2026-10-21 |
 | 5.2 | fail2ban, root-owned customer SSH keys, hidden `/proc` (`ProtectProc=invisible`), home folder permissions, `0700` admin files | 142 | | ◐ root-owned keys, no customer passwords, hidden processes done on anton 2026-10-20 and douglas1 2026-10-21; fail2ban done 2026-10-20; the admin password question (1.6) open |
+| 5.3 | What customers get: packages that need root, Python 3.12, Apptainer, `module`, temporary files in their own space, a welcome message and the guide | 143 | | ✅ done 2026-10-21 |
+| 5.4 | The login node: per-user CPU and memory limits; customers reach the internet, SSH and Slurm, not the office network or admin services | 145 | | ✅ done 2026-10-21 |
+| 5.5 | Onboarding proved live: `customer add --test`, `user add`, credit, a first day of real use | 210 | | ✅ done 2026-10-21 (c0003, zz05) |
 
 ## Phase 6: Slurm
 **Tests written in this phase:** CPU job, 1 GPU, several GPUs; oversized jobs and CPU-only jobs on a GPU node rejected, also through `scontrol update`; the memory limit kills; a job sees only its own GPUs; customers can't see other customers' jobs in `squeue`, `sacct` or `sreport`; no SSH into a node without a job; a job can't reach the internet; signals and the grace step; accounting records match what ran.
@@ -66,14 +72,15 @@ Then commit and push. Status as of 2026-10-19.
 | 6.2 | munge, MariaDB, `slurmdbd`, `slurmctld` on anton | 152 | | ✅ done on anton 2026-10-20 |
 | 6.3 | `slurmd` on douglas1: GPUs by model, cgroups, reserved system cores and memory, 5 cores + 20 GB per GPU (`job_submit.lua`), `pam_slurm_adopt` | 153 | | ✅ done 2026-10-21: slurmd on douglas1 with NVML GPU detection, cgroups, reserved core and memory, hidden job processes, logins only with a job (SOP-155; 16 live tests). Proof run to do |
 | 6.4 | Accounting: private data (in `slurm.conf` and `slurmdbd.conf`), GPU use per job, job scripts kept 60 days by Slurm's own purge | 154 | | ◐ private data, GPU use recording, 60-day job scripts configured; checked end to end once a node runs jobs |
-| 6.5 | Tests: CPU job, 1 GPU, several GPUs, limits, memory kill, a job can't reach the internet, signals and grace | 155 | | ◐ 2026-10-21: real 1- and 2-GPU jobs, CPU and memory share, privacy, no internet, accounting all tested on douglas1; memory kill and multi-node still to test |
+| 6.5 | Tests: CPU job, 1 GPU, several GPUs, limits, memory kill, a job can't reach the internet, signals and grace | 155 | | ✅ done 2026-10-21: real 1- and 2-GPU jobs, CPU and memory share, OOM stop, privacy, no internet, signals and grace, accounting, interactive sessions, arrays (test_slurm_node, test_billing_jobs, test_new_user). Multi-node waits for a second node |
+| 6.6 | Shared software in `/cluster/software`: Miniforge, PyTorch (CUDA 13.0) and its container, as modules; customers add their own on top (Q10) | 144 | | ✅ done 2026-10-21 |
 
 ## Phase 7: Billing and credits
 **Tests written in this phase:** code tests for the ledger arithmetic, credit batches and expiry, price overrides and history, storage peak, hourly charging, and re-runs never double-charging. End to end on the test accounts: top up, run jobs, charges correct to the cent, run out mid-job → grace → stop, expiry, statement totals equal Slurm's totals.
 
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 7.1 | `rates.yml` and per-customer prices; the ledger (whole-number amounts); credit batches with 12-month expiry; hourly charging keyed on `DBIndex`; Slurm limits sync (usage + what the balance buys); the 10-minute grace step | 161 | Set the prices (D29) and what 1 credit is worth (D40) | ◐ done on anton 2026-10-20 with placeholder prices; real-job charging and grace wait for douglas1 |
+| 7.1 | `rates.yml` and per-customer prices; the ledger (whole-number amounts); credit batches with 12-month expiry; hourly charging keyed on `DBIndex`; Slurm limits sync (usage + what the balance buys); the 10-minute grace step | 161 | Set the prices (D29) and what 1 credit is worth (D40) | ✅ done 2026-10-21 with placeholder prices: real-job charging (exact, hourly then final), out-of-credit grace tested live; ledger IDs fixed for Slurm 26.05 |
 | 7.2 | Customer commands: `credits`, `myusage`, `prices`, `mystorage` | 162 | | ✅ done 2026-10-20 |
 | 7.3 | Admin commands: `credits topup/refund/adjust`, statements, `billing check`. Dry-run a month on the test accounts. | 211 | Review a test statement | ◐ top-up, grant, adjust, refund, balance, statement done 2026-10-20; the monthly cross-check (`credits check`) done 2026-10-20; a month's dry run with real jobs waits for douglas1 |
 
@@ -100,7 +107,7 @@ The tests themselves are written in each phase above. This phase only schedules 
 ## Phase 11: Launch
 | # | What Claude does | SOP | You | Status |
 |---|---|---|---|---|
-| 11.1 | User guide (log in, submit jobs, checkpointing with signals, see costs) | | | ◐ draft written 2026-10-20 ([`user-guide.md`](user-guide.md)); login address, prices and support contact to be filled in |
+| 11.1 | User guide (log in, submit jobs, checkpointing with signals, see costs) | | | ◐ written 2026-10-21 ([`user-guide.md`](user-guide.md), published at `/cluster/docs/guide.md`): software, scratch, Jupyter, mistakes. Login address, prices and support contact to be filled in |
 | 11.2 | Terms (prices, credits expire after 12 months, scripts kept 60 days, no regulated data) | | Have them reviewed | |
 | 11.3 | Separate login host for customers (design Q8), remove the temporary passwordless sudo, security review | | Decide Q8 | |
 | 11.4 | First friendly customer | | Pick one | |

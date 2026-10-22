@@ -1,5 +1,5 @@
 # SOP-210: Adding and changing customers and users
-**Status:** the commands are tested in a sandbox (code tests). First real use: when the first customer is added.
+**Status:** proved live 2026-10-21 with test customer c0003 and user zz05 ([ops log](../ops-log/2026-10-21-douglas1-setup.md)); code tests in a sandbox.
 
 ## Purpose
 The day-to-day way to change who can use the cluster. Each command:
@@ -12,7 +12,7 @@ The day-to-day way to change who can use the cluster. Each command:
 ## Commands
 | Task | Command |
 |---|---|
-| Add a customer | `./cluster customer add --name "Acme Robotics" --billing-email ap@acme.example [--storage-gb 500] [--max-gpus 8]`. It picks the code (`c` + four digits). |
+| Add a customer | `./cluster customer add --name "Acme Robotics" --billing-email ap@acme.example [--storage-gb 500] [--max-gpus 8]`. It picks the code (`c` + four digits). `--test` makes a test customer (c0001-c0099), whose users are test users: zzNN, with a generated key and no `--key`. |
 | Change a customer | `./cluster customer set c4821 storage_gb 1000`. Fields: name, billing_email, storage_gb, max_gpus, discount_percent. |
 | Add a user | `./cluster user add c4821 --name "Alice Chen" --email alice@acme.example --key "ssh-ed25519 AAAA…"` (or `--key-file`), plus `--manager` or `--max-gpus 6` if needed. **It picks the username** and prints it; send it to the person. |
 | Change a user | `./cluster user set kx47 max_gpus 6`. Fields: name, email, ssh_key, role, max_gpus. |
@@ -38,3 +38,4 @@ The day-to-day way to change who can use the cluster. Each command:
 
 ## History
 - 2026-10-20: commands written; 10 end-to-end code tests (`tests/code/test_cluster_users.py`) in a sandbox copy of the repo.
+- 2026-10-21: `customer add --test` (lowest free c0001-c0099) and test users (lowest free zzNN, with a key the next apply makes). The sandbox now fakes `sudo` and keeps its own test-key folder, so code tests never touch `/etc`. **First live use:** `./cluster customer add --test --name "Test customer 3" --storage-gb 25 --max-gpus 2` (c0003), then `./cluster user add c0003 --manager` (zz05). Each committed, gave out IDs, applied and settled. Then `credits grant c0003 50`. As zz05: `test_new_user` 17/17.
